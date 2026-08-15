@@ -15,6 +15,7 @@
 *.keystore
 *.jks
 credenciales_firma.txt
+export_credentials.cfg
 !debug.keystore # Solo si decides que el debug SÍ se suba, pero mejor déjalo fuera
 
 # --- Archivos de Sistema/Editor ---
