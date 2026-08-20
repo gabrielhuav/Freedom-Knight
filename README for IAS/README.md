@@ -168,7 +168,34 @@ para la siguiente entrega. El `versionCode` sube de uno en uno sin importar el `
 Play exige que sea estrictamente mayor que cualquiera ya subido, y el número es global para la
 app, no por canal.
 
-### Las dos advertencias de Play sobre el versionCode 4
+### Las dos advertencias de Play (versionCode 4 y 5) — DECISIÓN: no se corrigen
+
+> **Reaparecen en cada subida.** Salieron idénticas en la 1.3 y en la 1.3.1, y volverán a salir
+> en la 1.4. Están investigadas a fondo dos veces (15 y 20 ago 2026) y la conclusión es la
+> misma: **no son corregibles en este proyecto a un costo razonable, y su beneficio real ya
+> está cubierto.** No vuelvas a gastar tiempo en ellas; si alguien pregunta, esta sección es la
+> respuesta.
+
+**Evidencia decisiva encontrada el 20 ago 2026:** el AAR que Godot distribuye
+(`android/build/libs/release/godot-lib.template_release.aar`) **no contiene ningún
+`proguard.txt`**, y tampoco hay archivos proguard ni `minifyEnabled` en toda la plantilla de
+compilación. Es decir, Godot no publica reglas *keep* para su propio runtime. Como el motor
+nativo llama a las clases `org.godotengine.godot.*` por nombre vía JNI, activar R8 sin escribir
+esas reglas a mano haría que las renombrara o eliminara, provocando fallos en tiempo de
+ejecución imposibles de rastrear.
+
+Además, **la advertencia del archivo de desofuscación no aplica**: su propósito es poder leer
+los stack traces cuando el código está ofuscado. Este proyecto no ofusca nada, así que las
+trazas de Java ya llegan legibles a Play Console. El beneficio que promete el aviso ya se
+tiene.
+
+Sobre los símbolos nativos, el costo de "arreglarlo" sería compilar plantillas de exportación
+propias desde el código fuente de Godot: instalar el NDK de Android (**no está instalado**),
+Python y SCons, más de una hora de compilación, y un AAB bastante más pesado. Todo para
+depurar crashes nativos que en un juego como este casi siempre ocurren en GDScript, donde
+Godot ya reporta archivo y línea.
+
+### Detalle técnico de las dos advertencias
 
 Ambas son **recomendaciones, no bloqueos** — Play aceptó el bundle. Se investigaron el
 15 ago 2026 y la conclusión es que **no vale la pena perseguirlas**:
