@@ -209,6 +209,56 @@ compañera que cura cada 5 bajas, tres mapas nuevos, y mejoras a menú de pausa 
 - `compileSdk` = 36 (viene de la plantilla de Godot 4.6, no se configura a mano)
 - **Solo `arm64-v8a`** — armeabi-v7a, x86 y x86_64 están desactivados
 - `package/signed=true`, `screen/immersive_mode=true`
+- **Permisos** (desde la 1.3.1): `internet`, `access_network_state` y `access_wifi_state` en
+  `true`. Todos los demás `permissions/*` siguen en `false`. Ver la sección 7.
+
+---
+
+## 7. Bug crítico encontrado: el multijugador LAN no podía funcionar (20 ago 2026)
+
+**Hallazgo.** El manifiesto de la versión **1.3** (`versionCode` 4), la que se subió a Play,
+**no declara ni un solo `uses-permission`**. Verificado sobre el manifiesto fusionado que
+generó Gradle:
+
+```
+android:minSdkVersion="24"  android:targetSdkVersion="36"
+android:versionCode="4"     android:versionName="1.3"
+(cero entradas uses-permission)
+```
+
+**Consecuencia.** En Android, `INTERNET` es obligatorio para abrir cualquier socket. Sin él,
+`ENetMultiplayerPeer` y `PacketPeerUDP` fallan en el dispositivo. El multijugador LAN — la
+función que se declaró ante Google como el diferenciador del juego en la pregunta 2.2 de la
+solicitud de acceso a producción — **no puede funcionar en esa build**, aunque en el editor de
+escritorio funcione perfecto.
+
+**El código está bien.** `NetworkManager.gd` usa `ENetMultiplayerPeer` para la partida y
+`PacketPeerUDP` con broadcast a `255.255.255.255:8911` para el descubrimiento, y sí llama a
+`set_broadcast_enabled(true)` en la línea 196. El fallo estaba únicamente en el preset de
+exportación, donde los `permissions/*` vienen todos en `false` por defecto.
+
+**Por qué no se detectó antes.** El menú de Arcade con la opción LAN entró en la 1.3. Las
+versiones que los verificadores probaron (1.0.0.1 a 1.2) no exponían la función, así que nadie
+llegó a intentarlo. Coincide con lo declarado en la pregunta 1.3 de la solicitud: *"El
+multijugador LAN se usó poco"*.
+
+**Corrección aplicada en la 1.3.1:**
+
+| Permiso | Antes | Ahora | Para qué |
+|---|---|---|---|
+| `internet` | false | **true** | Obligatorio para cualquier socket. Sin esto no arranca nada |
+| `access_network_state` | false | **true** | Consultar el estado de la conexión |
+| `access_wifi_state` | false | **true** | Leer la información de la red Wi-Fi |
+
+`change_wifi_multicast_state` se dejó en `false` deliberadamente. Haría falta solo si el
+descubrimiento por broadcast fallara en algún dispositivo: Android puede filtrar los paquetes
+a `255.255.255.255` sin un `MulticastLock`, que requiere ese permiso. Como el broadcast
+dirigido suele entregarse sin él, se prefirió no pedir un permiso extra sin necesidad
+comprobada. **Si al probar en dos teléfonos el anfitrión no aparece en la lista, ese permiso es
+lo primero que hay que activar.**
+
+**Pendiente de verificar en dispositivo real:** que con estos tres permisos el descubrimiento
+LAN y la partida funcionen entre dos teléfonos en la misma red.
 
 ---
 
