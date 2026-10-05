@@ -63,6 +63,8 @@ func _on_texture_button_pressed_guardar() -> void:
 	if not player:
 		push_error("No se encontró el nodo del jugador para guardar.")
 		return
+	if player.get("is_dead") == true:
+		return # No guardar una muerte pendiente de reaparicion o Game Over.
 		
 	# Bloquear controles
 	SaveManager.escribiendo_texto = true
@@ -154,6 +156,8 @@ func _on_texture_button_pressed_guardar() -> void:
 			"experiencia": player.experiencia if "experiencia" in player else 0,
 			"fuerza": player.fuerza if "fuerza" in player else 0,
 			"salud_actual": player.salud_actual if "salud_actual" in player else 10,
+			"vidas_maximas": player.vidas_maximas if "vidas_maximas" in player else 3,
+			"vidas_actuales": player.vidas_actuales if "vidas_actuales" in player else 3,
 			"inventario_equipo": player.obtener_estado_equipo() if player.has_method("obtener_estado_equipo") else {},
 		}
 		

@@ -162,6 +162,16 @@ func _should_run_host_logic() -> bool:
 	# Multijugador: solo el host
 	return not NetworkManager.is_multiplayer_active() or NetworkManager.is_server()
 
+func reanudar_tras_reaparicion() -> void:
+	# Los bucles que terminaron mientras no quedaba nadie vivo deben volver.
+	if not _should_run_host_logic(): return
+	if es_boss_rush:
+		_mantener_jefes.call_deferred()
+	else:
+		_mantener_caballeros.call_deferred()
+		_mantener_lanceros.call_deferred()
+		_mantener_vikingos.call_deferred()
+
 func _setup_local_player() -> void:
 	# El caballero mantiene su nombre "Caballero" en la escena.
 	# Usamos PlayerRegistry (con peer_id) para identificarlo, NO el nombre del nodo.
