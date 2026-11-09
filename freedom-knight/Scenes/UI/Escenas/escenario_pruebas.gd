@@ -656,10 +656,13 @@ func _soltar_equipo_aleatorio(posicion: Vector2, garantizado: bool) -> void:
 	var disponibles = ["espada_hierro", "armadura_cuero", "espada_sombras", "armadura_acero"]
 	# Las piezas avanzadas son menos frecuentes.
 	var roll = randf()
-	var item_id: String = disponibles[0] if roll < 0.42 else (
-		disponibles[1] if roll < 0.80 else (
-		disponibles[2] if roll < 0.90 else disponibles[3]
-	))
+	var item_id: String = disponibles[0]
+	if roll >= 0.90:
+		item_id = disponibles[3]
+	elif roll >= 0.80:
+		item_id = disponibles[2]
+	elif roll >= 0.42:
+		item_id = disponibles[1]
 	var loot = Node2D.new()
 	loot.set_script(equipo_suelo_script)
 	loot.set("item_id", item_id)
