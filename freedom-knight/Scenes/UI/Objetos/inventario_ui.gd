@@ -164,7 +164,7 @@ func _refrescar() -> void:
 	var arma: String = str(equipado.get("arma", ""))
 	var armadura: String = str(equipado.get("armadura", ""))
 	resumen.text = "Espacios: %d / %d     Ataque: %d     Armadura: +%d" % [
-		objetos.size(), jugador_actual.CAPACIDAD_INVENTARIO,
+		objetos.size(), 12,
 		jugador_actual.poder_ataque, jugador_actual.obtener_defensa_equipo()
 	]
 	if objetos.is_empty():
