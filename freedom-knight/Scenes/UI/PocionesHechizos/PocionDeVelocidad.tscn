@@ -1,0 +1,21 @@
+[gd_scene format=3 uid="uid://cj7fjtph1btqp"]
+
+[ext_resource type="Script" uid="uid://k7nsxlv7duhh" path="res://Scenes/UI/PocionesHechizos/pocion_de_velocidad.gd" id="1_3j3hd"]
+[ext_resource type="Texture2D" uid="uid://cdumq0xia41i" path="res://SpritesDelJuego/Pociones/PocionDeVelocidad.png" id="2_8wiy3"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_5t1wa"]
+radius = 34.058773
+
+[node name="PocionDeVelocidad" type="Area2D" unique_id=2034774386]
+collision_mask = 3
+script = ExtResource("1_3j3hd")
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=39041723]
+position = Vector2(-1.9073486e-06, -9.536743e-07)
+scale = Vector2(0.033203125, 0.025609002)
+texture = ExtResource("2_8wiy3")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1525155727]
+shape = SubResource("CircleShape2D_5t1wa")
+
+[connection signal="body_entered" from="." to="." method="_on_body_entered"]

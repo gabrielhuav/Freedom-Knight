@@ -40,6 +40,15 @@ var experiencia   : int   = 0
 var max_nivel     : int   = 1000
 var velocidad_base: float = 200.0
 
+@export_group("Sprint y Poción de Velocidad")
+@export var multiplicador_sprint       : float = 1.5
+@export var multiplicador_pocion_azul  : float = 2.2  # Superior al sprint normal
+@export var ventana_doble_toque_ms     : int   = 300
+var is_sprinting            : bool = false
+var is_speed_boost_active   : bool = false
+var estaba_moviendose       : bool = false
+var tiempo_ultimo_toque     : int  = -10000
+
 # ─────────────────────────────────────────────────────────────
 #  NODOS
 # ─────────────────────────────────────────────────────────────
@@ -188,11 +197,33 @@ func _physics_process(delta: float) -> void:
 	if Input.is_action_just_pressed("attack") and not is_attacking and not is_guarding:
 		_execute_attack()
 
-	# Movement
+	# Movement & Speed logic (Sprint + Potion Boost)
 	if is_guarding or is_attacking:
 		velocity = Vector2.ZERO
+		is_sprinting = false
+		estaba_moviendose = false
 	else:
-		velocity = direction * speed
+		var se_esta_moviendo = direction.length() > 0.2
+		
+		if estaba_moviendose and not se_esta_moviendo:
+			is_sprinting = false
+			tiempo_ultimo_toque = Time.get_ticks_msec()
+			
+		elif not estaba_moviendose and se_esta_moviendo:
+			var tiempo_actual = Time.get_ticks_msec()
+			if (tiempo_actual - tiempo_ultimo_toque) <= ventana_doble_toque_ms:
+				is_sprinting = true
+				
+		estaba_moviendose = se_esta_moviendo
+		
+		# Cálculo final de la velocidad con prioridad a la poción azul
+		var velocidad_final = speed
+		if is_speed_boost_active:
+			velocidad_final = speed * multiplicador_pocion_azul
+		elif is_sprinting:
+			velocidad_final = speed * multiplicador_sprint
+			
+		velocity = direction * velocidad_final
 
 	move_and_slide()
 
