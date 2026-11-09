@@ -62,6 +62,7 @@ func _usar_pocion() -> void:
 		return
 	if jugador_cerca.salud_actual >= jugador_cerca.vida_maxima:
 		print("[POCION] Vida llena, no se usó.")
+		_mostrar_aviso_vida_llena()
 		return
 
 	print("[POCION] ¡Usada! Curando %d puntos." % cantidad_curacion)
@@ -114,3 +115,39 @@ func rpc_play_potion_sound() -> void:
 func _exit_tree() -> void:
 	if _sfx_player and not _sfx_player.playing:
 		_sfx_player.queue_free()
+
+func _mostrar_aviso_vida_llena() -> void:
+	var canvas_layer = CanvasLayer.new()
+	canvas_layer.layer = 100
+	
+	var label = Label.new()
+	label.text = "¡Vida al máximo! No puedes usar la poción"
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	
+	# Estilo del recuadro
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.1, 0.1, 0.1, 0.85)
+	style.border_color = Color(0.9, 0.7, 0.2, 1.0)
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(6)
+	style.content_margin_left = 16
+	style.content_margin_right = 16
+	style.content_margin_top = 8
+	style.content_margin_bottom = 8
+	label.add_theme_stylebox_override("normal", style)
+	
+	# Centrar en la parte superior/media de la pantalla
+	label.anchor_left = 0.5
+	label.anchor_top = 0.2
+	label.anchor_right = 0.5
+	label.anchor_bottom = 0.2
+	label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	
+	canvas_layer.add_child(label)
+	get_tree().root.add_child(canvas_layer)
+	
+	# Espera asíncrona de 2 segundos sin congelar el juego
+	await get_tree().create_timer(2.0).timeout
+	if is_instance_valid(canvas_layer):
+		canvas_layer.queue_free()
