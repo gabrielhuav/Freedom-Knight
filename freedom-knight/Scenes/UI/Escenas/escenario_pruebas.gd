@@ -19,6 +19,7 @@ var pocion_scene    : PackedScene = preload("res://Scenes/UI/PocionesHechizos/Po
 var curandero_scene : PackedScene = preload("res://Scenes/UI/Personajes/NPC/monje_npc.tscn")
 var gata_scene      : PackedScene = preload("res://Scenes/UI/Personajes/Gata/gata.tscn")
 var jefe_scene      : PackedScene = preload("res://Scenes/UI/Personajes/Villanos/jefe/jefe_piso.tscn")
+var guardian_scene  : PackedScene = preload("res://Scenes/UI/Personajes/Villanos/guardian_sombras/guardian_sombras.tscn")
 var dragon_scene    : PackedScene = preload("res://Scenes/UI/Personajes/Villanos/dragon/dragon.tscn")
 var remoto_scene    : PackedScene = preload("res://Scenes/UI/Personajes/Heroe/caballero_remoto.tscn")
 
@@ -70,6 +71,7 @@ var timer_arqueros : Timer
 var timer_pociones : Timer
 var jefe_activo    : bool = false
 var dragon_spawned : bool = false
+var guardian_spawned: bool = false
 var es_boss_rush   : bool = false
 
 const SYNC_RATE_REMOTE: float = 0.05  # 20Hz para jugadores remotos
@@ -201,6 +203,7 @@ func _setup_multiplayer() -> void:
 	spawner.add_spawnable_scene("res://Scenes/UI/Personajes/NPC/monje_npc.tscn")
 	spawner.add_spawnable_scene("res://Scenes/UI/Personajes/Gata/gata.tscn")
 	spawner.add_spawnable_scene("res://Scenes/UI/Personajes/Villanos/jefe/jefe_piso.tscn")
+	spawner.add_spawnable_scene("res://Scenes/UI/Personajes/Villanos/guardian_sombras/guardian_sombras.tscn")
 	spawner.add_spawnable_scene("res://Scenes/UI/Personajes/Villanos/dragon/dragon.tscn")
 
 # ─────────────────────────────────────────────────────────────
@@ -757,7 +760,13 @@ func _subir_dificultad() -> void:
 		if NetworkManager.is_multiplayer_active() and NetworkManager.is_server():
 			rpc_sync_difficulty.rpc(muertes_totales, oleada_actual)
 
-	if indice_mapa_actual < progresion_mapas.size():
+	# Encuentro especial de una sola vez, antes del primer jefe de mapa.
+	# No reemplaza al jefe que desbloquea la siguiente zona.
+	if not es_boss_rush and not guardian_spawned and not jefe_activo and indice_mapa_actual == 0 and muertes_totales >= _get_umbral_adaptativo(30):
+		guardian_spawned = true
+		_spawnear_guardian.call_deferred()
+
+	if not jefe_activo and indice_mapa_actual < progresion_mapas.size():
 		var siguiente = progresion_mapas[indice_mapa_actual]
 		var umbral_cambio_mapa = _get_umbral_adaptativo(siguiente["umbral"])
 		if muertes_totales >= umbral_cambio_mapa:
@@ -771,16 +780,39 @@ func _subir_dificultad() -> void:
 		dragon_spawned = true
 		_spawnear_jefe_dragon.call_deferred()
 
+func _spawnear_guardian() -> void:
+	if jefe_activo or es_boss_rush or not PlayerRegistry.any_player_alive():
+		return
+	jefe_activo = true
+	var guardian = guardian_scene.instantiate()
+	guardian.name = "GuardianSombras_" + str(Time.get_ticks_msec())
+	add_child(guardian, true)
+	guardian.global_position = _pos_aleatoria_lejos_del_player()
+	guardian.murio.connect(_on_guardian_murio)
+	print("[JEFE] ¡Apareció el Guardián de las Sombras!")
+
+
+func _on_guardian_murio(_posicion: Vector2) -> void:
+	print("[JEFE] Guardián de las Sombras derrotado")
+	for i in range(2):
+		_spawnear_pocion()
+	jefe_activo = false
+	_subir_dificultad()
+	_mantener_caballeros.call_deferred()
+
+
 func _mantener_jefes() -> void:
 	if jefe_activo or not PlayerRegistry.any_player_alive(): return
 	jefe_activo = true
 
-	var es_dragon = (randi() % 2 == 0)
+	var tipo_jefe = randi_range(0, 2)
+	var es_dragon = tipo_jefe == 0
+	var es_guardian = tipo_jefe == 1
 	var canvas = CanvasLayer.new()
 	canvas.layer = 99
 	add_child(canvas)
 	var flash = ColorRect.new()
-	flash.color = Color(1.0, 0.2, 0.2, 0.0) if es_dragon else Color(1.0, 1.0, 1.0, 0.0)
+	flash.color = Color(1.0, 0.2, 0.2, 0.0) if es_dragon else (Color(0.65, 0.2, 0.95, 0.0) if es_guardian else Color(1.0, 1.0, 1.0, 0.0))
 	flash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	canvas.add_child(flash)
@@ -800,6 +832,14 @@ func _mantener_jefes() -> void:
 		if dragon.has_signal("murio"):
 			dragon.murio.connect(_on_jefe_boss_rush_murio)
 		print("[BOSS RUSH] Apareció el Dragón")
+	elif es_guardian and guardian_scene:
+		var guardian = guardian_scene.instantiate()
+		guardian.name = "Guardian_" + str(Time.get_ticks_msec()) + "_" + str(randi() % 1000)
+		add_child(guardian, true)
+		guardian.global_position = _pos_aleatoria_lejos_del_player()
+		if guardian.has_signal("murio"):
+			guardian.murio.connect(_on_jefe_boss_rush_murio)
+		print("[BOSS RUSH] Apareció el Guardián de las Sombras")
 	elif jefe_scene:
 		var jefe = jefe_scene.instantiate()
 		jefe.name = "Jefe_" + str(Time.get_ticks_msec()) + "_" + str(randi() % 1000)
