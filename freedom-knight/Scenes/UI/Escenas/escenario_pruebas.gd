@@ -662,7 +662,7 @@ func _soltar_equipo_aleatorio(posicion: Vector2, garantizado: bool) -> void:
 	))
 	var loot = Node2D.new()
 	loot.set_script(equipo_suelo_script)
-	loot.item_id = item_id
+	loot.set("item_id", item_id)
 	loot.name = "Botin_" + str(Time.get_ticks_msec()) + "_" + str(randi() % 10000)
 	add_child(loot)
 	loot.global_position = posicion
