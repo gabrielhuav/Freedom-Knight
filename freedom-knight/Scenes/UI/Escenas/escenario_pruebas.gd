@@ -16,6 +16,7 @@ var arquero_scene   : PackedScene = preload("res://Scenes/UI/Personajes/Villanos
 var lancero_scene   : PackedScene = preload("res://Scenes/UI/Personajes/Villanos/Lancero/lancero.tscn")
 var vikingo_scene   : PackedScene = preload("res://Scenes/UI/Personajes/Villanos/Vikingo/vikingo.tscn")
 var pocion_scene    : PackedScene = preload("res://Scenes/UI/PocionesHechizos/PocionDeVida.tscn")
+var pocion_velocidad_scene : PackedScene = preload("res://Scenes/UI/PocionesHechizos/PocionDeVelocidad.tscn")
 var curandero_scene : PackedScene = preload("res://Scenes/UI/Personajes/NPC/monje_npc.tscn")
 var gata_scene      : PackedScene = preload("res://Scenes/UI/Personajes/Gata/gata.tscn")
 var jefe_scene      : PackedScene = preload("res://Scenes/UI/Personajes/Villanos/jefe/jefe_piso.tscn")
@@ -81,6 +82,8 @@ var label_contador_muertes : Label
 var max_pociones_en_escena : int   = 3
 var intervalo_pocion_min   : float = 12.0
 var intervalo_pocion_max   : float = 22.0
+# NUEVO: probabilidad (0.0 a 1.0) de que una poción que aparece sea la de velocidad (azul)
+var probabilidad_pocion_velocidad : float = 0.35
 
 # ─────────────────────────────────────────────────────────────
 #  LÍMITES DEL MAPA
@@ -198,6 +201,8 @@ func _setup_multiplayer() -> void:
 	spawner.add_spawnable_scene("res://Scenes/UI/Personajes/Villanos/Vikingo/vikingo.tscn")
 	spawner.add_spawnable_scene("res://Scenes/UI/Personajes/Villanos/Arquero/Flecha.tscn")
 	spawner.add_spawnable_scene("res://Scenes/UI/PocionesHechizos/PocionDeVida.tscn")
+	# NUEVO: registrar la poción de velocidad para que los clientes también la vean
+	spawner.add_spawnable_scene("res://Scenes/UI/PocionesHechizos/PocionDeVelocidad.tscn")
 	spawner.add_spawnable_scene("res://Scenes/UI/Personajes/NPC/monje_npc.tscn")
 	spawner.add_spawnable_scene("res://Scenes/UI/Personajes/Gata/gata.tscn")
 	spawner.add_spawnable_scene("res://Scenes/UI/Personajes/Villanos/jefe/jefe_piso.tscn")
@@ -840,15 +845,23 @@ func _spawnear_pocion() -> void:
 	if not pocion_scene: return
 	var pociones_vivas = get_tree().get_nodes_in_group("pociones").size()
 	if pociones_vivas >= max_pociones_en_escena: return
-	var nueva_pocion = pocion_scene.instantiate()
-	nueva_pocion.name = "Pocion_" + str(Time.get_ticks_msec()) + "_" + str(randi() % 1000)
+
+	# NUEVO: decidir si esta poción será de velocidad (azul) o de vida
+	var es_velocidad: bool = pocion_velocidad_scene != null and randf() < probabilidad_pocion_velocidad
+	var escena_elegida: PackedScene = pocion_velocidad_scene if es_velocidad else pocion_scene
+	var prefijo_nombre: String = "PocionVel_" if es_velocidad else "Pocion_"
+
+	var nueva_pocion = escena_elegida.instantiate()  # NUEVO: antes era pocion_scene.instantiate()
+	nueva_pocion.name = prefijo_nombre + str(Time.get_ticks_msec()) + "_" + str(randi() % 1000)
 	add_child(nueva_pocion, true)
 	nueva_pocion.add_to_group("pociones")
 	if "cantidad_curacion" in nueva_pocion:
 		nueva_pocion.cantidad_curacion = 2
 		
 	var spawn_pos = _pos_aleatoria()
-	if NetworkManager.is_multiplayer_active():
+	# NUEVO: solo usar el RPC si la poción realmente tiene rpc_set_position
+	# (así la poción de velocidad no truena en multijugador si aún no lo tiene)
+	if NetworkManager.is_multiplayer_active() and nueva_pocion.has_method("rpc_set_position"):
 		nueva_pocion.rpc_set_position.rpc(spawn_pos)
 	else:
 		nueva_pocion.global_position = spawn_pos
