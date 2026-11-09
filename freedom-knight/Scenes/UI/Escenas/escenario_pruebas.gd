@@ -21,6 +21,7 @@ var gata_scene      : PackedScene = preload("res://Scenes/UI/Personajes/Gata/gat
 var jefe_scene      : PackedScene = preload("res://Scenes/UI/Personajes/Villanos/jefe/jefe_piso.tscn")
 var dragon_scene    : PackedScene = preload("res://Scenes/UI/Personajes/Villanos/dragon/dragon.tscn")
 var remoto_scene    : PackedScene = preload("res://Scenes/UI/Personajes/Heroe/caballero_remoto.tscn")
+var equipo_suelo_script: Script = preload("res://Scenes/UI/Objetos/equipo_suelo.gd")
 
 # ─────────────────────────────────────────────────────────────
 #  REFERENCIAS
@@ -469,6 +470,7 @@ func _crear_ui_contador() -> void:
 #  ENEMIES — Solo host
 # ─────────────────────────────────────────────────────────────
 func _on_enemigo_murio(_pos) -> void:
+	_soltar_equipo_aleatorio(_pos, false)
 	enemigos_derrotados += 1
 	caballeros_vivos    -= 1
 	_subir_dificultad()
@@ -498,6 +500,7 @@ func _spawnear_un_enemigo() -> void:
 #  VIKINGOS — Solo host (aparecen desde kill 70)
 # ─────────────────────────────────────────────────────────────
 func _on_vikingo_murio(_pos) -> void:
+	_soltar_equipo_aleatorio(_pos, false)
 	vikingos_derrotados += 1
 	vikingos_vivos      -= 1
 	_subir_dificultad()
@@ -625,18 +628,45 @@ func _spawnear_arquero() -> void:
 			nuevo.murio.connect(_on_arquero_murio)
 
 func _on_arquero_murio(_pos) -> void:
+	_soltar_equipo_aleatorio(_pos, false)
 	arqueros_vivos    -= 1
 	arqueros_derrotados += 1
 	_subir_dificultad()
 	get_tree().call_group("mascotas", "registrar_muerte_enemigo")
 
 func _on_lancero_murio(_pos) -> void:
+	_soltar_equipo_aleatorio(_pos, false)
 	lanceros_vivos    -= 1
 	lanceros_derrotados += 1
 	_subir_dificultad()
 	get_tree().call_group("mascotas", "registrar_muerte_enemigo")
 	await get_tree().create_timer(1.0).timeout
 	_mantener_lanceros.call_deferred()
+
+# ─────────────────────────────────────────────────────────────
+#  BOTIN DE EQUIPAMIENTO (SOLO ARCADE INDIVIDUAL)
+# ─────────────────────────────────────────────────────────────
+func _soltar_equipo_aleatorio(posicion: Vector2, garantizado: bool) -> void:
+	if NetworkManager.is_multiplayer_active():
+		return
+	if get_tree().get_nodes_in_group("loot_equipamiento").size() >= 5:
+		return
+	if not garantizado and randf() > 0.25:
+		return
+	var disponibles = ["espada_hierro", "armadura_cuero", "espada_sombras", "armadura_acero"]
+	# Las piezas avanzadas son menos frecuentes.
+	var roll = randf()
+	var item_id: String = disponibles[0] if roll < 0.42 else (
+		disponibles[1] if roll < 0.80 else (
+		disponibles[2] if roll < 0.90 else disponibles[3]
+	))
+	var loot = Node2D.new()
+	loot.set_script(equipo_suelo_script)
+	loot.item_id = item_id
+	loot.name = "Botin_" + str(Time.get_ticks_msec()) + "_" + str(randi() % 10000)
+	add_child(loot)
+	loot.global_position = posicion
+
 
 # ─────────────────────────────────────────────────────────────
 #  DIFFICULTY SCALING
@@ -810,6 +840,7 @@ func _mantener_jefes() -> void:
 		print("[BOSS RUSH] Apareció el Lord Caballero")
 
 func _on_jefe_boss_rush_murio(_pos) -> void:
+	_soltar_equipo_aleatorio(_pos, true)
 	enemigos_derrotados += 1
 	jefe_activo = false
 	_subir_dificultad()
@@ -1023,6 +1054,7 @@ func _spawnear_jefe_dragon() -> void:
 		print("[JEFE] ¡El Dragón de Fuego ha aparecido!")
 
 func _on_dragon_murio(_posicion) -> void:
+	_soltar_equipo_aleatorio(_posicion, true)
 	print("[DRAGON] ¡El Dragón ha sido derrotado!")
 	
 	if NetworkManager.is_multiplayer_active() and NetworkManager.is_server():
