@@ -40,6 +40,13 @@ var experiencia   : int   = 0
 var max_nivel     : int   = 1000
 var velocidad_base: float = 200.0
 
+@export_group("Sprint")
+@export var multiplicador_sprint   : float = 1.5
+@export var ventana_doble_toque_ms : int   = 300
+var is_sprinting        : bool = false
+var estaba_moviendose   : bool = false
+var tiempo_ultimo_toque : int  = -10000
+
 # ─────────────────────────────────────────────────────────────
 #  NODOS
 # ─────────────────────────────────────────────────────────────
@@ -191,8 +198,27 @@ func _physics_process(delta: float) -> void:
 	# Movement
 	if is_guarding or is_attacking:
 		velocity = Vector2.ZERO
+		is_sprinting = false
+		estaba_moviendose = false
 	else:
-		velocity = direction * speed
+		var se_esta_moviendo = direction.length() > 0.2
+		
+		if estaba_moviendose and not se_esta_moviendo:
+			is_sprinting = false
+			tiempo_ultimo_toque = Time.get_ticks_msec()
+			
+		elif not estaba_moviendose and se_esta_moviendo:
+			var tiempo_actual = Time.get_ticks_msec()
+			if (tiempo_actual - tiempo_ultimo_toque) <= ventana_doble_toque_ms:
+				is_sprinting = true
+				
+		estaba_moviendose = se_esta_moviendo
+		
+		var velocidad_final = speed
+		if is_sprinting:
+			velocidad_final *= multiplicador_sprint
+			
+		velocity = direction * velocidad_final
 
 	move_and_slide()
 
