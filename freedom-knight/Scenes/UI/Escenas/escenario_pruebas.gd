@@ -19,8 +19,10 @@ var pocion_scene    : PackedScene = preload("res://Scenes/UI/PocionesHechizos/Po
 var curandero_scene : PackedScene = preload("res://Scenes/UI/Personajes/NPC/monje_npc.tscn")
 var gata_scene      : PackedScene = preload("res://Scenes/UI/Personajes/Gata/gata.tscn")
 var jefe_scene      : PackedScene = preload("res://Scenes/UI/Personajes/Villanos/jefe/jefe_piso.tscn")
+var guardian_scene  : PackedScene = preload("res://Scenes/UI/Personajes/Villanos/guardian_sombras/guardian_sombras.tscn")
 var dragon_scene    : PackedScene = preload("res://Scenes/UI/Personajes/Villanos/dragon/dragon.tscn")
 var remoto_scene    : PackedScene = preload("res://Scenes/UI/Personajes/Heroe/caballero_remoto.tscn")
+var equipo_suelo_script: Script = preload("res://Scenes/UI/Objetos/equipo_suelo.gd")
 
 # ─────────────────────────────────────────────────────────────
 #  REFERENCIAS
@@ -70,6 +72,7 @@ var timer_arqueros : Timer
 var timer_pociones : Timer
 var jefe_activo    : bool = false
 var dragon_spawned : bool = false
+var guardian_spawned: bool = false
 var es_boss_rush   : bool = false
 
 const SYNC_RATE_REMOTE: float = 0.05  # 20Hz para jugadores remotos
@@ -201,6 +204,7 @@ func _setup_multiplayer() -> void:
 	spawner.add_spawnable_scene("res://Scenes/UI/Personajes/NPC/monje_npc.tscn")
 	spawner.add_spawnable_scene("res://Scenes/UI/Personajes/Gata/gata.tscn")
 	spawner.add_spawnable_scene("res://Scenes/UI/Personajes/Villanos/jefe/jefe_piso.tscn")
+	spawner.add_spawnable_scene("res://Scenes/UI/Personajes/Villanos/guardian_sombras/guardian_sombras.tscn")
 	spawner.add_spawnable_scene("res://Scenes/UI/Personajes/Villanos/dragon/dragon.tscn")
 
 # ─────────────────────────────────────────────────────────────
@@ -469,6 +473,7 @@ func _crear_ui_contador() -> void:
 #  ENEMIES — Solo host
 # ─────────────────────────────────────────────────────────────
 func _on_enemigo_murio(_pos) -> void:
+	_soltar_equipo_aleatorio(_pos, false)
 	enemigos_derrotados += 1
 	caballeros_vivos    -= 1
 	_subir_dificultad()
@@ -498,6 +503,7 @@ func _spawnear_un_enemigo() -> void:
 #  VIKINGOS — Solo host (aparecen desde kill 70)
 # ─────────────────────────────────────────────────────────────
 func _on_vikingo_murio(_pos) -> void:
+	_soltar_equipo_aleatorio(_pos, false)
 	vikingos_derrotados += 1
 	vikingos_vivos      -= 1
 	_subir_dificultad()
@@ -625,18 +631,48 @@ func _spawnear_arquero() -> void:
 			nuevo.murio.connect(_on_arquero_murio)
 
 func _on_arquero_murio(_pos) -> void:
+	_soltar_equipo_aleatorio(_pos, false)
 	arqueros_vivos    -= 1
 	arqueros_derrotados += 1
 	_subir_dificultad()
 	get_tree().call_group("mascotas", "registrar_muerte_enemigo")
 
 func _on_lancero_murio(_pos) -> void:
+	_soltar_equipo_aleatorio(_pos, false)
 	lanceros_vivos    -= 1
 	lanceros_derrotados += 1
 	_subir_dificultad()
 	get_tree().call_group("mascotas", "registrar_muerte_enemigo")
 	await get_tree().create_timer(1.0).timeout
 	_mantener_lanceros.call_deferred()
+
+# ─────────────────────────────────────────────────────────────
+#  BOTIN DE EQUIPAMIENTO (SOLO ARCADE INDIVIDUAL)
+# ─────────────────────────────────────────────────────────────
+func _soltar_equipo_aleatorio(posicion: Vector2, garantizado: bool) -> void:
+	if NetworkManager.is_multiplayer_active():
+		return
+	if get_tree().get_nodes_in_group("loot_equipamiento").size() >= 5:
+		return
+	if not garantizado and randf() > 0.25:
+		return
+	var disponibles = ["espada_hierro", "armadura_cuero", "espada_sombras", "armadura_acero"]
+	# Las piezas avanzadas son menos frecuentes.
+	var roll = randf()
+	var item_id: String = disponibles[0]
+	if roll >= 0.90:
+		item_id = disponibles[3]
+	elif roll >= 0.80:
+		item_id = disponibles[2]
+	elif roll >= 0.42:
+		item_id = disponibles[1]
+	var loot = Node2D.new()
+	loot.set_script(equipo_suelo_script)
+	loot.set("item_id", item_id)
+	loot.name = "Botin_" + str(Time.get_ticks_msec()) + "_" + str(randi() % 10000)
+	add_child(loot)
+	loot.global_position = posicion
+
 
 # ─────────────────────────────────────────────────────────────
 #  DIFFICULTY SCALING
@@ -757,7 +793,13 @@ func _subir_dificultad() -> void:
 		if NetworkManager.is_multiplayer_active() and NetworkManager.is_server():
 			rpc_sync_difficulty.rpc(muertes_totales, oleada_actual)
 
-	if indice_mapa_actual < progresion_mapas.size():
+	# Encuentro especial de una sola vez, antes del primer jefe de mapa.
+	# No reemplaza al jefe que desbloquea la siguiente zona.
+	if not es_boss_rush and not guardian_spawned and not jefe_activo and indice_mapa_actual == 0 and muertes_totales >= _get_umbral_adaptativo(30):
+		guardian_spawned = true
+		_spawnear_guardian.call_deferred()
+
+	if not jefe_activo and indice_mapa_actual < progresion_mapas.size():
 		var siguiente = progresion_mapas[indice_mapa_actual]
 		var umbral_cambio_mapa = _get_umbral_adaptativo(siguiente["umbral"])
 		if muertes_totales >= umbral_cambio_mapa:
@@ -771,16 +813,39 @@ func _subir_dificultad() -> void:
 		dragon_spawned = true
 		_spawnear_jefe_dragon.call_deferred()
 
+func _spawnear_guardian() -> void:
+	if jefe_activo or es_boss_rush or not PlayerRegistry.any_player_alive():
+		return
+	jefe_activo = true
+	var guardian = guardian_scene.instantiate()
+	guardian.name = "GuardianSombras_" + str(Time.get_ticks_msec())
+	add_child(guardian, true)
+	guardian.global_position = _pos_aleatoria_lejos_del_player()
+	guardian.murio.connect(_on_guardian_murio)
+	print("[JEFE] ¡Apareció el Guardián de las Sombras!")
+
+
+func _on_guardian_murio(_posicion: Vector2) -> void:
+	print("[JEFE] Guardián de las Sombras derrotado")
+	for i in range(2):
+		_spawnear_pocion()
+	jefe_activo = false
+	_subir_dificultad()
+	_mantener_caballeros.call_deferred()
+
+
 func _mantener_jefes() -> void:
 	if jefe_activo or not PlayerRegistry.any_player_alive(): return
 	jefe_activo = true
 
-	var es_dragon = (randi() % 2 == 0)
+	var tipo_jefe = randi_range(0, 2)
+	var es_dragon = tipo_jefe == 0
+	var es_guardian = tipo_jefe == 1
 	var canvas = CanvasLayer.new()
 	canvas.layer = 99
 	add_child(canvas)
 	var flash = ColorRect.new()
-	flash.color = Color(1.0, 0.2, 0.2, 0.0) if es_dragon else Color(1.0, 1.0, 1.0, 0.0)
+	flash.color = Color(1.0, 0.2, 0.2, 0.0) if es_dragon else (Color(0.65, 0.2, 0.95, 0.0) if es_guardian else Color(1.0, 1.0, 1.0, 0.0))
 	flash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	canvas.add_child(flash)
@@ -800,6 +865,14 @@ func _mantener_jefes() -> void:
 		if dragon.has_signal("murio"):
 			dragon.murio.connect(_on_jefe_boss_rush_murio)
 		print("[BOSS RUSH] Apareció el Dragón")
+	elif es_guardian and guardian_scene:
+		var guardian = guardian_scene.instantiate()
+		guardian.name = "Guardian_" + str(Time.get_ticks_msec()) + "_" + str(randi() % 1000)
+		add_child(guardian, true)
+		guardian.global_position = _pos_aleatoria_lejos_del_player()
+		if guardian.has_signal("murio"):
+			guardian.murio.connect(_on_jefe_boss_rush_murio)
+		print("[BOSS RUSH] Apareció el Guardián de las Sombras")
 	elif jefe_scene:
 		var jefe = jefe_scene.instantiate()
 		jefe.name = "Jefe_" + str(Time.get_ticks_msec()) + "_" + str(randi() % 1000)
@@ -810,6 +883,7 @@ func _mantener_jefes() -> void:
 		print("[BOSS RUSH] Apareció el Lord Caballero")
 
 func _on_jefe_boss_rush_murio(_pos) -> void:
+	_soltar_equipo_aleatorio(_pos, true)
 	enemigos_derrotados += 1
 	jefe_activo = false
 	_subir_dificultad()
@@ -1023,6 +1097,7 @@ func _spawnear_jefe_dragon() -> void:
 		print("[JEFE] ¡El Dragón de Fuego ha aparecido!")
 
 func _on_dragon_murio(_posicion) -> void:
+	_soltar_equipo_aleatorio(_posicion, true)
 	print("[DRAGON] ¡El Dragón ha sido derrotado!")
 	
 	if NetworkManager.is_multiplayer_active() and NetworkManager.is_server():
