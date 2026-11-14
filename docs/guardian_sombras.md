@@ -1,33 +1,42 @@
-# Guardián de las Sombras — guía de validación
+# Shadow Guardian — Custom Sprite Integration and QA
 
-Este cambio agrega un nuevo jefe en el proyecto `freedom-knight` de Godot 4.6.
+## Overview
 
-## Qué se agregó
+The Shadow Guardian is a distinct hooded shadow mage, not a recolor of the existing armored floor boss. Its new original 4x4 pixel-art sprite sheet and the backpack icon are included as **gameplay assets**, not screenshots.
 
-- Escena independiente `guardian_sombras.tscn`, con sprites de jefe ya existentes (sin assets de terceros).
-- IA de persecución y ataque reutilizando la lógica del jefe de piso.
-- Fase 2 al bajar de 50% de salud: apariencia morada intensa, mayor velocidad y ataques más frecuentes.
-- Onda de sombras cada tres ataques durante la fase 2, con anillo de advertencia visible durante 0.75 s. El objetivo puede esquivar alejándose más de 230 unidades del jefe.
-- En Arcade, encuentro único al alcanzar aproximadamente 30 enemigos derrotados (umbral adaptativo). Se conserva el jefe del mapa al umbral original.
-- Tercera opción de jefe en Boss Rush.
-- Registro de la escena en MultiplayerSpawner. La selección de objetivos y la aplicación de daño corresponden al host/solitario.
+### Animation setup
 
-## Pruebas manuales necesarias
+- `guardian_sombras_sheet.png`: 768x768, 16 frames (192x192 each), transparent pixel art.
+- **Idle:** first row, 4 frames, looping at 4 FPS.
+- **Move:** second row, 4 frames, looping at 7 FPS.
+- **Attack / shadow magic:** third row, 4 frames, once at 7 FPS.
+- **Hurt:** first two frames of row four, once at 8 FPS.
+- **Death:** final two frames of row four, once at 2 FPS, overlaid with the inherited fade and boss-defeat effects.
+- `AnimatedSprite2D` builds the Godot `SpriteFrames` from `AtlasTexture` regions. Nearest filtering preserves the pixel-art appearance.
+- The visual has a 1.25x in-scene scale, with a resized capsule collision shape (66-pixel radius, 176-pixel height), a raised name label and health bar, and the existing attack detection area.
+- A separate original `icono_mochila.png` (48x48) appears in the inventory's touch button.
 
-> Las pruebas siguientes están **pendientes** hasta ejecutar el proyecto en Godot 4.6. No se deben marcar como aprobadas antes de contar con evidencia.
+## Existing gameplay preserved
 
-1. Abrir `freedom-knight/project.godot` en Godot 4.6 y confirmar que no hay errores de parseo o recursos faltantes.
-2. Iniciar Arcade en solitario, derrotar aproximadamente 30 enemigos y verificar que aparece **Guardián de las Sombras** una sola vez.
-3. Confirmar que el jefe persigue al jugador, puede recibir daño y muestra su barra de vida.
-4. Reducir su salud por debajo del 50%: observar apariencia más intensa, aviso de fase 2 y aumento de agresividad.
-5. Durante la fase 2, comprobar advertencia circular y esquiva de la onda saliendo del radio. Dentro del radio se debe aplicar daño una sola vez.
-6. Derrotar al jefe y comprobar que desaparece, aparecen dos pociones y se reanuda la progresión.
-7. Continuar hasta el siguiente jefe de mapa y verificar que el encuentro nuevo no impide cambiar de zona.
-8. Iniciar Boss Rush y realizar varias rondas: deben poder aparecer los tres tipos de jefes.
-9. Probar LAN con host y un cliente: verificar presencia del jefe en ambos, fase 2, anillo de advertencia y daño decidido únicamente por el host.
-10. Capturar un video breve que muestre aparición, cambio de fase, onda y derrota.
+- Pursuit and melee attacks inherited from the floor boss.
+- Second phase at 50% HP, with increased speed and attack frequency.
+- Telegraph ring followed by the special shadow-wave attack (0.75 s warning; 230-unit damage radius).
+- Arcade boss encounter, Boss Rush selection, host-authoritative multiplayer damage, death signal, explosion and normal progression.
 
-## Limitaciones
+## Manual QA checklist — pending in Godot
 
-- Las ilustraciones del Guardián reutilizan los recursos gráficos del jefe existente, diferenciadas con una paleta violeta. No se añaden imágenes externas nuevas.
-- Los resultados visuales, de balance y de sincronización multijugador requieren ejecución real.
+- [ ] Open `freedom-knight/project.godot` and confirm all new sprites import and the boss scene parses without errors.
+- [ ] Spawn the boss and confirm its **new hooded spectral appearance**, distinct from the floor boss; verify sprite size, health bar and name placement.
+- [ ] Confirm idle hover and movement animations, flip behavior and collision against the player and environment.
+- [ ] Confirm attack animation, damage feedback and death animation, including loot/potions and progression after defeat.
+- [ ] Lower the boss to 50% HP and confirm the phase-two color and combat behavior.
+- [ ] Trigger the shadow-wave telegraph and verify attack timing, range and damage.
+- [ ] Confirm the new backpack icon is visible and responds to tap and the I key.
+- [ ] Verify Android readability and responsiveness at the game's real resolution.
+- [ ] Regress Boss Rush and LAN multiplayer, including death and phase synchronization.
+
+**QA status:** The sprites, code and scenes were integrated, but the updated boss has **not** yet been executed in Godot. No runtime success should be claimed until the contributor tests it.
+
+## Source policy
+
+The new boss sheet and the new backpack PNG are **required gameplay assets** that belong in the game's repository. Screenshots used to document testing should remain in PR comments, not in the game's source tree.

@@ -3,6 +3,7 @@
 extends Control
 
 const EquipoAssets = preload("res://Scenes/UI/Objetos/equipo_assets.gd")
+const ICONO_MOCHILA = preload("res://SpritesDelJuego/UI/icono_mochila.png")
 
 var boton_mochila: Button
 var capa_oscura: ColorRect
@@ -80,9 +81,12 @@ func cerrar() -> void:
 func _crear_interfaz() -> void:
 	boton_mochila = Button.new()
 	boton_mochila.text = "Mochila [I]"
+	boton_mochila.icon = ICONO_MOCHILA
+	boton_mochila.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	boton_mochila.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	boton_mochila.position = Vector2(135, 30)
-	boton_mochila.custom_minimum_size = Vector2(115, 48)
-	boton_mochila.add_theme_font_size_override("font_size", 16)
+	boton_mochila.custom_minimum_size = Vector2(175, 52)
+	boton_mochila.add_theme_font_size_override("font_size", 14)
 	boton_mochila.pressed.connect(alternar)
 	add_child(boton_mochila)
 

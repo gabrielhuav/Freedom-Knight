@@ -3,13 +3,62 @@
 ## segunda fase y una onda de sombras con aviso visual.
 extends "res://Scenes/UI/Personajes/Villanos/jefe/jefe_piso.gd"
 
+const HOJA_SPRITES = preload("res://Scenes/UI/Personajes/Villanos/guardian_sombras/guardian_sombras_sheet.png")
+const TAMANO_CUADRO: int = 192
 const RADIO_ONDA: float = 230.0
 const ANTICIPACION_ONDA: float = 0.75
-const COLOR_SOMBRA := Color(0.63, 0.42, 0.95, 1.0)
-const COLOR_FURIA := Color(0.88, 0.28, 0.98, 1.0)
+# La identidad violeta ya esta pintada en los nuevos sprites.
+const COLOR_SOMBRA := Color.WHITE
+const COLOR_FURIA := Color(1.0, 0.75, 1.0, 1.0)
 
 var fase_dos: bool = false
 var ataques_desde_onda: int = 0
+
+
+# Reemplaza por completo las animaciones heredadas del jefe de piso.
+# La hoja de 768x768 contiene una cuadricula de 4x4 cuadros de 192x192.
+func _configurar_animaciones() -> void:
+	animated_sprite.position = Vector2(3, -18)
+	animated_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	var frames := SpriteFrames.new()
+	var nombres := ["default", "correr", "atacar", "herido", "morir"]
+	for nombre in nombres:
+		if not frames.has_animation(nombre):
+			frames.add_animation(nombre)
+		frames.clear(nombre)
+
+	_agregar_cuadros(frames, "default", 0, 0, 4)
+	_agregar_cuadros(frames, "correr", 1, 0, 4)
+	_agregar_cuadros(frames, "atacar", 2, 0, 4)
+	_agregar_cuadros(frames, "herido", 3, 0, 2)
+	_agregar_cuadros(frames, "morir", 3, 2, 2)
+
+	frames.set_animation_speed("default", 4.0)
+	frames.set_animation_speed("correr", 7.0)
+	frames.set_animation_speed("atacar", 7.0)
+	frames.set_animation_speed("herido", 8.0)
+	frames.set_animation_speed("morir", 2.0)
+	for nombre in ["default", "correr"]:
+		frames.set_animation_loop(nombre, true)
+	for nombre in ["atacar", "herido", "morir"]:
+		frames.set_animation_loop(nombre, false)
+	animated_sprite.sprite_frames = frames
+	animated_sprite.play("default")
+
+
+func _agregar_cuadros(frames: SpriteFrames, nombre: String, fila: int, primera_columna: int, cantidad: int) -> void:
+	for columna in range(primera_columna, primera_columna + cantidad):
+		var region := AtlasTexture.new()
+		region.atlas = HOJA_SPRITES
+		region.region = Rect2(columna * TAMANO_CUADRO, fila * TAMANO_CUADRO, TAMANO_CUADRO, TAMANO_CUADRO)
+		region.filter_clip = true
+		frames.add_frame(nombre, region)
+
+
+func _crear_barra_vida() -> void:
+	super._crear_barra_vida()
+	if is_instance_valid(barra_vida):
+		barra_vida.position = Vector2(-75, -175)
 
 
 func _ready() -> void:
@@ -29,7 +78,7 @@ func _actualizar_nombre() -> void:
 	var titulo := Label.new()
 	titulo.text = "GUARDIAN DE LAS SOMBRAS"
 	titulo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	titulo.position = Vector2(-150, -320)
+	titulo.position = Vector2(-150, -208)
 	titulo.custom_minimum_size = Vector2(300, 28)
 	titulo.add_theme_color_override("font_color", Color(0.9, 0.72, 1.0))
 	titulo.add_theme_color_override("font_outline_color", Color.BLACK)
@@ -68,7 +117,7 @@ func _activar_fase_dos() -> void:
 	var aviso := Label.new()
 	aviso.text = "FASE 2 - FURIA SOMBRIA"
 	aviso.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	aviso.position = Vector2(-160, -360)
+	aviso.position = Vector2(-160, -240)
 	aviso.custom_minimum_size = Vector2(320, 32)
 	aviso.add_theme_color_override("font_color", Color(1.0, 0.75, 1.0))
 	add_child(aviso)
@@ -78,10 +127,28 @@ func _activar_fase_dos() -> void:
 
 
 func _efecto_dano() -> void:
+	if is_dead:
+		return
+	if animated_sprite.sprite_frames.has_animation("herido"):
+		animated_sprite.play("herido")
 	var destino: Color = COLOR_FURIA if fase_dos else COLOR_SOMBRA
 	modulate = Color(1.0, 0.35, 0.5)
 	var tween := create_tween()
 	tween.tween_property(self, "modulate", destino, 0.22)
+
+
+func _morir() -> void:
+	if is_dead:
+		return
+	if animated_sprite.sprite_frames.has_animation("morir"):
+		animated_sprite.play("morir")
+	super._morir()
+
+
+func _morir_client() -> void:
+	if animated_sprite.sprite_frames.has_animation("morir"):
+		animated_sprite.play("morir")
+	super._morir_client()
 
 
 func _atacar_jugador() -> void:
