@@ -1,42 +1,29 @@
-# Shadow Guardian — Custom Sprite Integration and QA
+# Shadow Guardian — Stability Restore and QA
 
-## Overview
+## Recovery change
 
-The Shadow Guardian is a distinct hooded shadow mage, not a recolor of the existing armored floor boss. Its new original 4x4 pixel-art sprite sheet and the backpack icon are included as **gameplay assets**, not screenshots.
+The animated Shadow Guardian update was temporarily rolled back after the contributor reported two regressions: the inventory button / I-key shortcut disappeared, and the regular enemy flow stopped near the Shadow Guardian encounter.
 
-### Animation setup
+The original, previously demonstrated playable boss scene and script have been restored. The original boss is still selectable in Arcade and Boss Rush, with the same second phase, telegraphed wave, damage, defeat signal and progression.
 
-- `guardian_sombras_sheet.png`: 768x768, 16 frames (192x192 each), transparent pixel art.
-- **Idle:** first row, 4 frames, looping at 4 FPS.
-- **Move:** second row, 4 frames, looping at 7 FPS.
-- **Attack / shadow magic:** third row, 4 frames, once at 7 FPS.
-- **Hurt:** first two frames of row four, once at 8 FPS.
-- **Death:** final two frames of row four, once at 2 FPS, overlaid with the inherited fade and boss-defeat effects.
-- `AnimatedSprite2D` builds the Godot `SpriteFrames` from `AtlasTexture` regions. Nearest filtering preserves the pixel-art appearance.
-- The visual has a 1.25x in-scene scale, with a resized capsule collision shape (66-pixel radius, 176-pixel height), a raised name label and health bar, and the existing attack detection area.
-- A separate original `icono_mochila.png` (48x48) appears in the inventory's touch button.
+A defensive check was added before setting `jefe_activo` in the spawning method, so a null or failed boss instantiation does not leave the map permanently flagged as having an active boss.
 
-## Existing gameplay preserved
+The original inventory UI was also restored, with the newly added backpack image loaded **optionally at runtime**. The text button and the **I** shortcut must remain available even if the icon cannot be imported.
 
-- Pursuit and melee attacks inherited from the floor boss.
-- Second phase at 50% HP, with increased speed and attack frequency.
-- Telegraph ring followed by the special shadow-wave attack (0.75 s warning; 230-unit damage radius).
-- Arcade boss encounter, Boss Rush selection, host-authoritative multiplayer damage, death signal, explosion and normal progression.
+## Custom artwork
 
-## Manual QA checklist — pending in Godot
+The new original 4x4 spectral-boss spritesheet (`guardian_sombras_sheet.png`) and the backpack icon (`icono_mochila.png`) remain in the repository as gameplay assets. **The custom boss animations are not active yet.** They must be reintegrated only after the stable gameplay flow is confirmed in Godot.
 
-- [ ] Open `freedom-knight/project.godot` and confirm all new sprites import and the boss scene parses without errors.
-- [ ] Spawn the boss and confirm its **new hooded spectral appearance**, distinct from the floor boss; verify sprite size, health bar and name placement.
-- [ ] Confirm idle hover and movement animations, flip behavior and collision against the player and environment.
-- [ ] Confirm attack animation, damage feedback and death animation, including loot/potions and progression after defeat.
-- [ ] Lower the boss to 50% HP and confirm the phase-two color and combat behavior.
-- [ ] Trigger the shadow-wave telegraph and verify attack timing, range and damage.
-- [ ] Confirm the new backpack icon is visible and responds to tap and the I key.
-- [ ] Verify Android readability and responsiveness at the game's real resolution.
-- [ ] Regress Boss Rush and LAN multiplayer, including death and phase synchronization.
+## Manual QA — required before approval
 
-**QA status:** The sprites, code and scenes were integrated, but the updated boss has **not** yet been executed in Godot. No runtime success should be claimed until the contributor tests it.
+- [ ] Launch the updated branch in Godot with no parser or resource-loading errors.
+- [ ] Confirm that the **Mochila [I]** button is visible and I opens/closes the inventory; test the new icon where supported.
+- [ ] Defeat enough regular enemies to trigger the Shadow Guardian, confirm the boss appears and the level does not get stuck.
+- [ ] Defeat the boss; verify its death signal, reward and continued regular enemy spawning / map progression.
+- [ ] Confirm attack, second phase and shadow-wave warning remain functional.
+- [ ] Check save/load, Boss Rush, and Android/Mobile controls.
+- [ ] Later, reintroduce custom boss frames incrementally and rerun every check.
 
-## Source policy
+**QA status:** This recovery has been committed and statically reviewed; it has **not** yet been executed in the contributor's Godot environment.
 
-The new boss sheet and the new backpack PNG are **required gameplay assets** that belong in the game's repository. Screenshots used to document testing should remain in PR comments, not in the game's source tree.
+Screenshots used for QA should remain in PR comments, not in the gameplay asset directory.

@@ -816,12 +816,19 @@ func _subir_dificultad() -> void:
 func _spawnear_guardian() -> void:
 	if jefe_activo or es_boss_rush or not PlayerRegistry.any_player_alive():
 		return
-	jefe_activo = true
+	# Do not block regular enemy spawning unless the boss was created successfully.
+	if guardian_scene == null:
+		push_error("[JEFE] No se pudo cargar la escena del Guardian de las Sombras.")
+		return
 	var guardian = guardian_scene.instantiate()
+	if not is_instance_valid(guardian):
+		push_error("[JEFE] No se pudo instanciar al Guardian de las Sombras.")
+		return
 	guardian.name = "GuardianSombras_" + str(Time.get_ticks_msec())
 	add_child(guardian, true)
 	guardian.global_position = _pos_aleatoria_lejos_del_player()
 	guardian.murio.connect(_on_guardian_murio)
+	jefe_activo = true
 	print("[JEFE] ¡Apareció el Guardián de las Sombras!")
 
 
