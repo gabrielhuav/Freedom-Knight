@@ -81,31 +81,49 @@ func cerrar() -> void:
 
 
 func _crear_interfaz() -> void:
+	# Boton transparente, sin fondo rectangular ni sombra de tema.
 	boton_mochila = Button.new()
-	boton_mochila.text = "Mochila [I]"
+	boton_mochila.name = "BotonMochila"
+	boton_mochila.text = ""
+	boton_mochila.tooltip_text = "Abrir mochila (I)"
+	boton_mochila.flat = true
 	boton_mochila.position = Vector2(135, 30)
-	boton_mochila.custom_minimum_size = Vector2(115, 48)
-	boton_mochila.add_theme_font_size_override("font_size", 16)
-	# El boton de texto y el acceso con I funcionan aunque la imagen falle.
-	# TextureRect es un elemento visible independiente, no un icono de tema.
+	boton_mochila.custom_minimum_size = Vector2(165, 52)
+	boton_mochila.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	boton_mochila.pressed.connect(alternar)
+	add_child(boton_mochila)
+
+	# Agrupar icono y texto evita el espacio excesivo entre ellos.
+	var fila_mochila := HBoxContainer.new()
+	fila_mochila.name = "ContenidoMochila"
+	fila_mochila.position = Vector2(4, 2)
+	fila_mochila.custom_minimum_size = Vector2(0, 48)
+	fila_mochila.add_theme_constant_override("separation", 4)
+	fila_mochila.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	boton_mochila.add_child(fila_mochila)
+
 	var textura_mochila: Texture2D = load(RUTA_ICONO_MOCHILA) as Texture2D
 	if textura_mochila != null:
-		boton_mochila.custom_minimum_size = Vector2(190, 56)
-		boton_mochila.alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		var imagen_mochila := TextureRect.new()
 		imagen_mochila.name = "IconoMochila"
 		imagen_mochila.texture = textura_mochila
-		imagen_mochila.position = Vector2(8, 6)
-		imagen_mochila.size = Vector2(44, 44)
+		imagen_mochila.custom_minimum_size = Vector2(44, 44)
 		imagen_mochila.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		imagen_mochila.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		imagen_mochila.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		imagen_mochila.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		boton_mochila.add_child(imagen_mochila)
+		fila_mochila.add_child(imagen_mochila)
 	else:
 		push_warning("No se pudo cargar el icono de mochila; se conserva el boton de texto.")
-	boton_mochila.pressed.connect(alternar)
-	add_child(boton_mochila)
+
+	var texto_mochila := Label.new()
+	texto_mochila.name = "TextoMochila"
+	texto_mochila.text = "Mochila [I]"
+	texto_mochila.add_theme_font_size_override("font_size", 16)
+	texto_mochila.add_theme_color_override("font_color", Color.WHITE)
+	texto_mochila.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	texto_mochila.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fila_mochila.add_child(texto_mochila)
 
 	capa_oscura = ColorRect.new()
 	capa_oscura.color = Color(0.02, 0.025, 0.065, 0.87)

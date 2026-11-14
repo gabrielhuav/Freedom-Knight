@@ -26,7 +26,7 @@ func _ready() -> void:
 		if is_instance_valid(barra_vida):
 			barra_vida.max_value = vida_maxima
 			barra_vida.value = salud_actual
-	_actualizar_nombre()
+	# Igual que los demas jefes, no se agrega un nombre flotante.
 
 
 # Se ejecuta DESPUES de _ready() del jefe base. Si la textura falla,
@@ -72,18 +72,6 @@ func _agregar_fotogramas(cuadros: SpriteFrames, textura: Texture2D, nombre: Stri
 		cuadros.add_frame(nombre, recorte)
 
 
-func _actualizar_nombre() -> void:
-	var titulo := Label.new()
-	titulo.text = "GUARDIAN DE LAS SOMBRAS"
-	titulo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	titulo.position = Vector2(-150, -320)
-	titulo.custom_minimum_size = Vector2(300, 28)
-	titulo.add_theme_color_override("font_color", Color(0.9, 0.72, 1.0))
-	titulo.add_theme_color_override("font_outline_color", Color.BLACK)
-	titulo.add_theme_constant_override("outline_size", 4)
-	add_child(titulo)
-
-
 func recibir_dano(cantidad: int) -> void:
 	if is_dead or _is_client_only():
 		return
@@ -104,7 +92,17 @@ func _process(delta: float) -> void:
 # Solo se dibujan brevemente los cuadros de impacto sin alterar su IA.
 func _physics_process(delta: float) -> void:
 	super._physics_process(delta)
-	if is_dead or esta_atacando or _is_client_only():
+	if is_dead:
+		return
+	# La hoja espectral mira a la izquierda por defecto. Los cuadros
+	# de movimiento deben reflejarse al avanzar hacia la derecha.
+	# El codigo base usa la orientacion contraria para el jefe original.
+	if not _is_client_only() and is_instance_valid(animated_sprite):
+		if velocity.x > 0.1:
+			animated_sprite.flip_h = true
+		elif velocity.x < -0.1:
+			animated_sprite.flip_h = false
+	if esta_atacando or _is_client_only():
 		return
 	if _tiempo_impacto > 0.0:
 		_tiempo_impacto = maxf(0.0, _tiempo_impacto - delta)

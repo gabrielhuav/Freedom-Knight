@@ -1,27 +1,21 @@
-# Shadow Guardian — Custom Visuals and Recovery QA
+# Shadow Guardian and Backpack UI — Visual Refinements
 
-## Scope of the change
+## Changes
 
-The previous working Shadow Guardian scene, collision shape, spawn logic, network behavior, boss health and damage mechanics remain in place. The new hooded shadow-wraith art is attached **after the inherited boss initialization**, leaving the original animations as a fallback if the texture cannot be loaded. The 4×4 original transparent pixel-art sheet contains four frames each for idle, movement and attack, two frames for hurt and two frames for death.
+- Removed the Shadow Guardian's persistent floating name label, matching other bosses. The temporary phase-two message is unchanged.
+- Reversed only the Shadow Guardian's sprite-facing logic for the new custom animation sheet: moving right faces right; moving left faces left. The original floor boss and dragon retain their existing movement and visual logic.
+- Removed the dark default button background from the backpack's on-screen control by using a flat button. The 44-pixel backpack image and the "Mochila [I]" label now appear next to each other in a single HBoxContainer with 4 pixels of separation. Both child controls ignore mouse input, preserving tap/click handling by the parent button and the I-key shortcut.
+- Verified that the original armored floor boss script and sprite in the feature branch are identical to those in `main`. Its source artwork has naturally purple-colored armor; this is part of the original image, not a tint inherited from the new Shadow Guardian. No modifications were made to that independent boss.
+- Existing spawning, collision, boss battle logic, equipment statistics, inventory state, save/load and enemy progression were left unchanged.
 
-The inventory's **Mochila [I]** button now displays a 48×48 original backpack icon through a 44×44 `TextureRect` child. The child ignores mouse input, so touch and mouse clicks remain handled by the button itself. The keyboard I shortcut is unchanged. If the image is unavailable, the text button remains.
+## QA checklist — manual run required
 
-## Design constraints preserved
+- [ ] Shadow Guardian appears without a floating boss-name label.
+- [ ] During movement, the Guardian faces right when moving right and left when moving left. Validate while pursuing a player on each side.
+- [ ] Backpack icon appears without a dark rectangular button backdrop; image and label sit close together.
+- [ ] Backpack still opens/closes by button/touch and I key.
+- [ ] Original armored floor boss keeps its `main` appearance; no new purple visual effect is applied to it.
+- [ ] Shadow Guardian's phase two, shadow wave, death, and further enemy/map progression remain functional.
+- [ ] Test in Boss Rush and Android after desktop regression.
 
-- No changes to the stage's enemy-spawning logic or boss instantiation.
-- No changes to boss collisions, health, combat damage, special wave, phase-two logic, or boss reward callbacks.
-- No changes to inventory equipment, stats, save/load data, 12-slot capacity, or duplicate-item handling.
-- Boss art uses `AnimatedSprite2D` with nearest-neighbor texture filtering, using the existing animation names expected by the inherited boss code: `default`, `correr` and `atacar`.
-- The new custom art is a gameplay asset, not QA evidence.
-
-## Manual QA checklist (English)
-
-- [ ] Launch the updated project in Godot without parse errors or missing resources.
-- [ ] Confirm the original inventory button remains visible, **with a backpack picture**, and the I key still opens/closes it.
-- [ ] Reach the Shadow Guardian encounter in Arcade and verify that regular enemy progression does not stall.
-- [ ] Confirm the boss now uses the purple hooded wraith sprites, including idle, movement and attack.
-- [ ] Confirm that hit feedback, phase two, shadow-wave warning, collision and damage continue to work.
-- [ ] Defeat the boss and verify the death animation, rewards and subsequent map progression.
-- [ ] Test Boss Rush, save/load, a physical Android device and LAN multiplayer.
-
-**QA status:** Code and asset paths were checked statically. In-engine execution is still pending contributor testing. Do not mark gameplay-specific checks as passed without runtime evidence.
+**QA status:** This change has been code-reviewed and committed to the feature branch. The new visual refinements require Godot runtime confirmation and must not be marked as passed yet.
