@@ -1,19 +1,23 @@
 ## Guardian de las Sombras - nuevo jefe para Arcade y Boss Rush.
-## Reutiliza la IA y las animaciones del jefe de piso; agrega una
-## segunda fase y una onda de sombras con aviso visual.
+## Conserva la IA y el combate del jefe de piso; utiliza un aspecto
+## espectral propio con animaciones de reposo, movimiento y ataque.
 extends "res://Scenes/UI/Personajes/Villanos/jefe/jefe_piso.gd"
 
+const RUTA_SPRITES: String = "res://Scenes/UI/Personajes/Villanos/guardian_sombras/guardian_sombras_sheet.png"
 const RADIO_ONDA: float = 230.0
 const ANTICIPACION_ONDA: float = 0.75
-const COLOR_SOMBRA := Color(0.63, 0.42, 0.95, 1.0)
-const COLOR_FURIA := Color(0.88, 0.28, 0.98, 1.0)
+# Los colores morados ya estan integrados en los sprites.
+const COLOR_SOMBRA := Color.WHITE
+const COLOR_FURIA := Color(1.0, 0.78, 1.0, 1.0)
 
 var fase_dos: bool = false
 var ataques_desde_onda: int = 0
+var _tiempo_impacto: float = 0.0
 
 
 func _ready() -> void:
 	super._ready()
+	_aplicar_sprites_personalizados()
 	modulate = COLOR_SOMBRA
 	if not _is_client_only():
 		vida_maxima *= 1.2
@@ -23,6 +27,49 @@ func _ready() -> void:
 			barra_vida.max_value = vida_maxima
 			barra_vida.value = salud_actual
 	_actualizar_nombre()
+
+
+# Se ejecuta DESPUES de _ready() del jefe base. Si la textura falla,
+# se mantienen intactas las animaciones originales y el combate.
+func _aplicar_sprites_personalizados() -> void:
+	var textura: Texture2D = load(RUTA_SPRITES) as Texture2D
+	if textura == null:
+		push_warning("No se pudo cargar el spritesheet del Guardian; se mantiene el arte anterior.")
+		return
+	if textura.get_width() % 4 != 0 or textura.get_height() % 4 != 0:
+		push_warning("El spritesheet del Guardian no tiene dimensiones divisibles entre 4.")
+		return
+	var ancho: int = int(textura.get_width() / 4)
+	var alto: int = int(textura.get_height() / 4)
+	var cuadros := SpriteFrames.new()
+	for nombre in ["correr", "atacar", "herido", "morir"]:
+		cuadros.add_animation(nombre)
+	_agregar_fotogramas(cuadros, textura, "default", 0, 0, 4, ancho, alto)
+	_agregar_fotogramas(cuadros, textura, "correr", 1, 0, 4, ancho, alto)
+	_agregar_fotogramas(cuadros, textura, "atacar", 2, 0, 4, ancho, alto)
+	_agregar_fotogramas(cuadros, textura, "herido", 3, 0, 2, ancho, alto)
+	_agregar_fotogramas(cuadros, textura, "morir", 3, 2, 2, ancho, alto)
+	for nombre in ["default", "correr"]:
+		cuadros.set_animation_loop(nombre, true)
+	for nombre in ["atacar", "herido", "morir"]:
+		cuadros.set_animation_loop(nombre, false)
+	cuadros.set_animation_speed("default", 4.0)
+	cuadros.set_animation_speed("correr", 7.0)
+	cuadros.set_animation_speed("atacar", 6.0)
+	cuadros.set_animation_speed("herido", 8.0)
+	cuadros.set_animation_speed("morir", 2.0)
+	animated_sprite.sprite_frames = cuadros
+	animated_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	animated_sprite.scale = Vector2(2.25, 2.25)
+	animated_sprite.play("default")
+
+
+func _agregar_fotogramas(cuadros: SpriteFrames, textura: Texture2D, nombre: String, fila: int, inicio: int, cantidad: int, ancho: int, alto: int) -> void:
+	for columna in range(inicio, inicio + cantidad):
+		var recorte := AtlasTexture.new()
+		recorte.atlas = textura
+		recorte.region = Rect2(columna * ancho, fila * alto, ancho, alto)
+		cuadros.add_frame(nombre, recorte)
 
 
 func _actualizar_nombre() -> void:
@@ -53,6 +100,20 @@ func _process(delta: float) -> void:
 			_activar_fase_dos()
 
 
+# El jefe base mantiene la persecucion, colisiones y sincronizacion.
+# Solo se dibujan brevemente los cuadros de impacto sin alterar su IA.
+func _physics_process(delta: float) -> void:
+	super._physics_process(delta)
+	if is_dead or esta_atacando or _is_client_only():
+		return
+	if _tiempo_impacto > 0.0:
+		_tiempo_impacto = maxf(0.0, _tiempo_impacto - delta)
+		if animated_sprite.sprite_frames.has_animation("herido"):
+			animated_sprite.animation = "herido"
+			animated_sprite.frame = 0 if _tiempo_impacto > 0.12 else 1
+			animated_sprite.stop()
+
+
 func _activar_fase_dos() -> void:
 	if fase_dos:
 		return
@@ -78,10 +139,26 @@ func _activar_fase_dos() -> void:
 
 
 func _efecto_dano() -> void:
+	if not esta_atacando:
+		_tiempo_impacto = 0.24
 	var destino: Color = COLOR_FURIA if fase_dos else COLOR_SOMBRA
 	modulate = Color(1.0, 0.35, 0.5)
 	var tween := create_tween()
 	tween.tween_property(self, "modulate", destino, 0.22)
+
+
+func _morir() -> void:
+	if is_dead:
+		return
+	if animated_sprite.sprite_frames.has_animation("morir"):
+		animated_sprite.play("morir")
+	super._morir()
+
+
+func _morir_client() -> void:
+	if animated_sprite.sprite_frames.has_animation("morir"):
+		animated_sprite.play("morir")
+	super._morir_client()
 
 
 func _atacar_jugador() -> void:

@@ -1,29 +1,27 @@
-# Shadow Guardian — Stability Restore and QA
+# Shadow Guardian — Custom Visuals and Recovery QA
 
-## Recovery change
+## Scope of the change
 
-The animated Shadow Guardian update was temporarily rolled back after the contributor reported two regressions: the inventory button / I-key shortcut disappeared, and the regular enemy flow stopped near the Shadow Guardian encounter.
+The previous working Shadow Guardian scene, collision shape, spawn logic, network behavior, boss health and damage mechanics remain in place. The new hooded shadow-wraith art is attached **after the inherited boss initialization**, leaving the original animations as a fallback if the texture cannot be loaded. The 4×4 original transparent pixel-art sheet contains four frames each for idle, movement and attack, two frames for hurt and two frames for death.
 
-The original, previously demonstrated playable boss scene and script have been restored. The original boss is still selectable in Arcade and Boss Rush, with the same second phase, telegraphed wave, damage, defeat signal and progression.
+The inventory's **Mochila [I]** button now displays a 48×48 original backpack icon through a 44×44 `TextureRect` child. The child ignores mouse input, so touch and mouse clicks remain handled by the button itself. The keyboard I shortcut is unchanged. If the image is unavailable, the text button remains.
 
-A defensive check was added before setting `jefe_activo` in the spawning method, so a null or failed boss instantiation does not leave the map permanently flagged as having an active boss.
+## Design constraints preserved
 
-The original inventory UI was also restored, with the newly added backpack image loaded **optionally at runtime**. The text button and the **I** shortcut must remain available even if the icon cannot be imported.
+- No changes to the stage's enemy-spawning logic or boss instantiation.
+- No changes to boss collisions, health, combat damage, special wave, phase-two logic, or boss reward callbacks.
+- No changes to inventory equipment, stats, save/load data, 12-slot capacity, or duplicate-item handling.
+- Boss art uses `AnimatedSprite2D` with nearest-neighbor texture filtering, using the existing animation names expected by the inherited boss code: `default`, `correr` and `atacar`.
+- The new custom art is a gameplay asset, not QA evidence.
 
-## Custom artwork
+## Manual QA checklist (English)
 
-The new original 4x4 spectral-boss spritesheet (`guardian_sombras_sheet.png`) and the backpack icon (`icono_mochila.png`) remain in the repository as gameplay assets. **The custom boss animations are not active yet.** They must be reintegrated only after the stable gameplay flow is confirmed in Godot.
+- [ ] Launch the updated project in Godot without parse errors or missing resources.
+- [ ] Confirm the original inventory button remains visible, **with a backpack picture**, and the I key still opens/closes it.
+- [ ] Reach the Shadow Guardian encounter in Arcade and verify that regular enemy progression does not stall.
+- [ ] Confirm the boss now uses the purple hooded wraith sprites, including idle, movement and attack.
+- [ ] Confirm that hit feedback, phase two, shadow-wave warning, collision and damage continue to work.
+- [ ] Defeat the boss and verify the death animation, rewards and subsequent map progression.
+- [ ] Test Boss Rush, save/load, a physical Android device and LAN multiplayer.
 
-## Manual QA — required before approval
-
-- [ ] Launch the updated branch in Godot with no parser or resource-loading errors.
-- [ ] Confirm that the **Mochila [I]** button is visible and I opens/closes the inventory; test the new icon where supported.
-- [ ] Defeat enough regular enemies to trigger the Shadow Guardian, confirm the boss appears and the level does not get stuck.
-- [ ] Defeat the boss; verify its death signal, reward and continued regular enemy spawning / map progression.
-- [ ] Confirm attack, second phase and shadow-wave warning remain functional.
-- [ ] Check save/load, Boss Rush, and Android/Mobile controls.
-- [ ] Later, reintroduce custom boss frames incrementally and rerun every check.
-
-**QA status:** This recovery has been committed and statically reviewed; it has **not** yet been executed in the contributor's Godot environment.
-
-Screenshots used for QA should remain in PR comments, not in the gameplay asset directory.
+**QA status:** Code and asset paths were checked statically. In-engine execution is still pending contributor testing. Do not mark gameplay-specific checks as passed without runtime evidence.

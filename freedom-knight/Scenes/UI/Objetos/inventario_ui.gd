@@ -86,14 +86,24 @@ func _crear_interfaz() -> void:
 	boton_mochila.position = Vector2(135, 30)
 	boton_mochila.custom_minimum_size = Vector2(115, 48)
 	boton_mochila.add_theme_font_size_override("font_size", 16)
-	# Keep the button and I-key shortcut functional even if this PNG is unavailable.
-	if ResourceLoader.exists(RUTA_ICONO_MOCHILA):
-		var textura_mochila = load(RUTA_ICONO_MOCHILA)
-		if textura_mochila is Texture2D:
-			boton_mochila.icon = textura_mochila
-			boton_mochila.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
-			boton_mochila.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-			boton_mochila.custom_minimum_size = Vector2(175, 52)
+	# El boton de texto y el acceso con I funcionan aunque la imagen falle.
+	# TextureRect es un elemento visible independiente, no un icono de tema.
+	var textura_mochila: Texture2D = load(RUTA_ICONO_MOCHILA) as Texture2D
+	if textura_mochila != null:
+		boton_mochila.custom_minimum_size = Vector2(190, 56)
+		boton_mochila.alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		var imagen_mochila := TextureRect.new()
+		imagen_mochila.name = "IconoMochila"
+		imagen_mochila.texture = textura_mochila
+		imagen_mochila.position = Vector2(8, 6)
+		imagen_mochila.size = Vector2(44, 44)
+		imagen_mochila.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		imagen_mochila.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		imagen_mochila.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		imagen_mochila.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		boton_mochila.add_child(imagen_mochila)
+	else:
+		push_warning("No se pudo cargar el icono de mochila; se conserva el boton de texto.")
 	boton_mochila.pressed.connect(alternar)
 	add_child(boton_mochila)
 
