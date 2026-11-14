@@ -165,6 +165,10 @@ func _refrescar() -> void:
 	var equipado: Dictionary = jugador_actual.equipo_equipado
 	var arma: String = str(equipado.get("arma", ""))
 	var armadura: String = str(equipado.get("armadura", ""))
+	# El guardado identifica el equipo por ID, no por copia individual.
+	# Mostrar la etiqueta en una sola copia de cada categoria.
+	var arma_marcada: bool = false
+	var armadura_marcada: bool = false
 	resumen.text = "Espacios: %d / %d     Ataque: %d     Armadura: +%d" % [
 		objetos.size(), 12,
 		jugador_actual.poder_ataque, jugador_actual.obtener_defensa_equipo()
@@ -180,8 +184,13 @@ func _refrescar() -> void:
 		var texto: String = str(info.get("nombre", id))
 		var bonificacion: int = int(info.get("ataque", 0)) if info.get("tipo") == "arma" else int(info.get("defensa", 0))
 		texto += "   +%d %s" % [bonificacion, "ataque" if info.get("tipo") == "arma" else "defensa"]
-		if (info.get("tipo") == "arma" and arma == id) or (info.get("tipo") == "armadura" and armadura == id):
+		var tipo: String = str(info.get("tipo", ""))
+		if tipo == "arma" and arma == id and not arma_marcada:
 			texto = "[EQUIPADO] " + texto
+			arma_marcada = true
+		elif tipo == "armadura" and armadura == id and not armadura_marcada:
+			texto = "[EQUIPADO] " + texto
+			armadura_marcada = true
 		var indice := i
 		var boton = Button.new()
 		boton.text = texto
