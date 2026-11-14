@@ -1,45 +1,45 @@
-# Inventario y equipamiento (Arcade individual)
+# Inventory and Equipment (Single-player Arcade)
 
-Esta contribución añade un inventario simple de **12 espacios** y equipo funcional a Freedom Knight, con una interfaz accesible en PC y Android. Se desarrolla en una rama separada del Guardián de las Sombras.
+This feature adds a 12-slot backpack, collectible loot, equippable weapons and armor, and save/load support to Freedom Knight. The combined pull request also includes the Shadow Guardian boss.
 
-## Flujo de juego
+## How it works
 
-1. Derrotar enemigos normales: tienen un **25 % de probabilidad** de dejar un objeto de equipo (máximo 5 objetos simultáneos en el suelo). Los jefes de Boss Rush y el dragón de Arcade dejan un objeto garantizado, sujeto al límite de cinco.
-2. Acercarse al objeto hasta ver la instrucción de recogida.
-3. Presionar **E** / acción `interact` (botón de mano en Android) para recogerlo.
-4. Abrir la **mochila** desde su botón táctil superior izquierdo o mediante la tecla **I**.
-5. Tocar o hacer clic en un objeto para **equiparlo o desequiparlo**. Se equipa como máximo un arma y una armadura.
-6. Guardar la partida desde el menú de pausa; el inventario y equipo se registran en el guardado. Las partidas antiguas pueden cargarse con el inventario vacío.
+1. Defeat enemies. Regular enemies have a **25% equipment drop chance**, with at most five loot items on the ground at once. Supported boss defeats also drop equipment, subject to the same limit.
+2. Approach an equipment pickup and press **E** or use the existing **interact** action.
+3. Open the backpack with **I** or the on-screen backpack button.
+4. Select an item to equip or unequip it. One weapon and one armor piece can be equipped simultaneously.
+5. Save the game from the pause menu. Inventory and equipped items are included in single-player save data; older saves remain loadable.
 
-## Equipo disponible
+## Item catalog and custom sprites
 
-| Objeto | Categoría | Efecto |
+| Item | Bonus | Asset |
 | --- | --- | --- |
-| Espada de hierro | Arma | +2 ataque |
-| Espada de las sombras | Arma | +4 ataque |
-| Armadura de cuero | Armadura | +1 defensa |
-| Armadura de acero | Armadura | +3 defensa |
+| Iron Sword | +2 attack | `res://SpritesDelJuego/Equipamiento/espada_hierro.png` |
+| Shadow Sword | +4 attack | `res://SpritesDelJuego/Equipamiento/espada_sombras.png` |
+| Leather Armor | +1 defense | `res://SpritesDelJuego/Equipamiento/armadura_cuero.png` |
+| Steel Armor | +3 defense | `res://SpritesDelJuego/Equipamiento/armadura_acero.png` |
 
-El daño final conserva el cálculo de defensa/nivel existente; el equipamiento agrega bonos. No se añaden texturas descargadas: el botín usa formas dibujadas mediante `_draw` y la UI usa controles de Godot.
+Four original **48 × 48 PNG sprites with transparent backgrounds** replace the old geometric placeholders and appear beside their item labels in the backpack. The shared `equipo_assets.gd` maps IDs to textures. Nearest-neighbor filtering retains sharp pixel edges. The artwork was generated for this contribution and resized into game-ready sprites.
 
-## Alcance y limitaciones
+**Asset policy:** The four PNG files are required gameplay resources and belong in the repository. QA screenshots remain in the PR conversation, not in the currently changed project files.
 
-- **Primera entrega solo para Arcade individual.** En multijugador se deshabilitan el botín y el inventario para evitar la manipulación de estadísticas desde clientes sin un protocolo autoritativo completo.
-- No se añade capacidad de vender objetos, combinarlos, ni cambiar los sprites o animaciones según la armadura equipada.
-- El guardado conserva inventario/equipo en datos JSON. El script valida IDs del catálogo antes de restaurarlos.
-- Hay elementos repetidos posibles, que se muestran por su nombre; una sola selección por tipo de equipo es efectiva.
+## Scope and limitations
 
-## Lista de pruebas manuales pendientes
+- Equipment and loot currently work only in **single-player Arcade**. Multiplayer remains unchanged until authoritative equipment synchronization is implemented.
+- Equipped items modify attack/defense statistics, but do not replace the knight character's animation sprites.
+- Selling, combining, dropping, and trading equipment are outside this feature's scope.
+- Duplicate item types are possible; only one item of each equipment category can be active.
 
-- [ ] Abrir `freedom-knight/project.godot` en Godot, sin errores de parseo.
-- [ ] Iniciar Arcade individual: abrir/cerrar mochila con **I** y con el botón táctil.
-- [ ] Comprobar que se puede reanudar el juego y usar el menú pausa sin quedar bloqueado.
-- [ ] Derrotar enemigos hasta que aparezca botín. Acercarse y recoger con **E** / botón de mano.
-- [ ] Equipar espada y verificar que el ataque mostrado aumenta; pulsar de nuevo y verificar que vuelve a su valor original.
-- [ ] Equipar armadura y comprobar reducción del daño que recibe el personaje.
-- [ ] Llenar 12 espacios y comprobar que no se puede recoger un decimotercer objeto.
-- [ ] Guardar, salir y cargar la partida; verificar que se conservan los objetos y el equipo elegido.
-- [ ] Probar apertura, desplazamiento y selección del inventario en pantalla táctil.
-- [ ] Verificar que una sesión multijugador no muestra la mochila ni genera objetos en el suelo.
+## Manual QA checklist
 
-**Estado de QA:** estas pruebas deben realizarse en Godot; no están marcadas como aprobadas por el simple hecho de crear los archivos.
+- [ ] Open `freedom-knight/project.godot` in Godot and confirm the new textures import without errors.
+- [ ] Start single-player Arcade and verify that all four ground item types have distinct pixel-art icons.
+- [ ] Pick up ground loot using **E** or the touch interact button.
+- [ ] Open the backpack and verify the four icons are rendered beside item names and bonuses.
+- [ ] Equip and unequip a sword and armor; confirm attack/defense modifiers are applied correctly.
+- [ ] Save and reload; verify items, equipped state, and icons persist.
+- [ ] Verify the 12-slot inventory limit.
+- [ ] Test the interface on a physical Android device and different resolutions.
+- [ ] Confirm that multiplayer mode does not spawn inventory loot or show the backpack.
+
+**QA status:** The previous inventory implementation was tested manually in Godot. The newly added artwork integration has not yet been tested in-engine.

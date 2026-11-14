@@ -1,6 +1,8 @@
 ## Objeto de equipo recogible. Arcade individual; no afecta a la red.
 extends Node2D
 
+const EquipoAssets = preload("res://Scenes/UI/Objetos/equipo_assets.gd")
+
 @export var item_id: String = "espada_hierro"
 
 const DISTANCIA_RECOGER: float = 92.0
@@ -11,6 +13,11 @@ var etiqueta: Label
 func _ready() -> void:
 	add_to_group("loot_equipamiento")
 	z_index = 4
+	# The custom 48x48 pixel-art icon replaces the old placeholder drawing.
+	var icono = Sprite2D.new()
+	icono.texture = EquipoAssets.obtener_textura(item_id)
+	icono.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	add_child(icono)
 	etiqueta = Label.new()
 	etiqueta.position = Vector2(-100, -65)
 	etiqueta.custom_minimum_size = Vector2(200, 44)
@@ -62,15 +69,8 @@ func _actualizar_etiqueta() -> void:
 
 
 func _draw() -> void:
+	# Pickup ring behind the actual equipment sprite.
 	var color_objeto := Color(0.95, 0.75, 0.28) if item_id.begins_with("espada") else Color(0.35, 0.75, 1.0)
-	draw_circle(Vector2.ZERO, 24.0 if jugador_cercano else 20.0, Color(0.06, 0.06, 0.12, 0.78))
-	draw_arc(Vector2.ZERO, 22.0, 0.0, TAU, 32, color_objeto, 3.0)
-	if item_id.begins_with("espada"):
-		draw_line(Vector2(-8, 12), Vector2(10, -12), color_objeto, 5.0)
-		draw_line(Vector2(-10, 6), Vector2(0, 14), Color.WHITE, 3.0)
-	else:
-		draw_colored_polygon(PackedVector2Array([
-			Vector2(-12, -13), Vector2(12, -13),
-			Vector2(10, 8), Vector2(0, 16), Vector2(-10, 8)
-		]), color_objeto)
-		draw_line(Vector2(0, -9), Vector2(0, 9), Color(0.1, 0.15, 0.25), 2.0)
+	var radio: float = 27.0 if jugador_cercano else 24.0
+	draw_circle(Vector2.ZERO, radio, Color(0.06, 0.06, 0.12, 0.72))
+	draw_arc(Vector2.ZERO, radio, 0.0, TAU, 32, color_objeto, 2.0)

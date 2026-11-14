@@ -2,6 +2,8 @@
 ## Solo Arcade individual. No altera el estado de la partida multijugador.
 extends Control
 
+const EquipoAssets = preload("res://Scenes/UI/Objetos/equipo_assets.gd")
+
 var boton_mochila: Button
 var capa_oscura: ColorRect
 var ventana: PanelContainer
@@ -183,7 +185,10 @@ func _refrescar() -> void:
 		var indice := i
 		var boton = Button.new()
 		boton.text = texto
-		boton.custom_minimum_size = Vector2(0, 48)
+		boton.icon = EquipoAssets.obtener_textura(id)
+		boton.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		boton.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		boton.custom_minimum_size = Vector2(0, 56)
 		boton.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		boton.pressed.connect(func(): jugador_actual.equipar_equipo(indice))
 		lista.add_child(boton)
