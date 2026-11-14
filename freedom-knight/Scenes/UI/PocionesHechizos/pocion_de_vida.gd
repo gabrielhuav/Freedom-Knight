@@ -145,9 +145,10 @@ func _mostrar_aviso_vida_llena() -> void:
 	label.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	
 	canvas_layer.add_child(label)
-	get_tree().root.add_child(canvas_layer)
+	# El aviso pertenece a la escena y se elimina al salir de ella.
+	var escena = get_tree().current_scene
+	var contenedor = escena if is_instance_valid(escena) else get_tree().root
+	contenedor.add_child(canvas_layer)
 	
-	# Espera asíncrona de 2 segundos sin congelar el juego
-	await get_tree().create_timer(2.0).timeout
-	if is_instance_valid(canvas_layer):
-		canvas_layer.queue_free()
+	# La limpieza depende del aviso, no de que la pocion siga existiendo.
+	get_tree().create_timer(2.0).timeout.connect(canvas_layer.queue_free, CONNECT_ONE_SHOT)
