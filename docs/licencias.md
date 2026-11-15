@@ -10,6 +10,5 @@
 * **Licencia de Godot:** Licencia MIT (Copyright (c) 2014-present Juan Linietsky, Ariel Manzur, Godot Engine contributors).
 
 ## 3. Procedencia de Recursos y Assets Externos
-* **Sprites y animaciones del personaje:** Conjunto de sprites 2D pixel art de uso libre para proyectos no comerciales.
-* **Música y efectos de sonido:** Pistas de audio chiptune/retro integradas en el proyecto base, bajo licencias Creative Commons Zero (CC0) / Dominio Público o licencias de uso libre con atribución.
-* **Tipografías:** Fuentes pixel art libres de derechos para renderizado en pantalla de interfaz.
+* **Recursos heredados (sprites, audio y tipografias):** Esta consolidacion no verifica su procedencia ni sus licencias individuales. No se debe interpretar la licencia MIT del codigo como prueba de la licencia de cada recurso.
+* **Arte de equipo, mochila y Guardian:** Incorporado desde el PR 6. La documentacion de inventario describe el arte generado para esa contribucion; no se asigna aqui una licencia externa sin una fuente comprobada.

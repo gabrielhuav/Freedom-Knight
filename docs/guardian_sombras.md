@@ -18,4 +18,4 @@
 - [ ] Shadow Guardian's phase two, shadow wave, death, and further enemy/map progression remain functional.
 - [ ] Test in Boss Rush and Android after desktop regression.
 
-**QA status:** This change has been code-reviewed and committed to the feature branch. The new visual refinements require Godot runtime confirmation and must not be marked as passed yet.
+**Consolidated PR 2 QA:** Godot 4.6.3 automated regressions verify custom animation loading, facing in both movement directions, phase two, the warning node and area damage, defeat, enemy progression and the Boss Rush encounter. See `pr2-validacion.md`. Visual presentation and physical Android/LAN testing remain pending; the manual checklist above is not claimed as completed by these automated checks.

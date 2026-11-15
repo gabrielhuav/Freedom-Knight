@@ -42,4 +42,4 @@ Four original **48 × 48 PNG sprites with transparent backgrounds** replace the 
 - [ ] Test the interface on a physical Android device and different resolutions.
 - [ ] Confirm that multiplayer mode does not spawn inventory loot or show the backpack.
 
-**QA status:** The previous inventory implementation was tested manually in Godot. The newly added artwork integration has not yet been tested in-engine.
+**Consolidated PR 2 QA:** The Godot 4.6.3 runtime suite verifies capacity, attack/defense bonuses, UI button/key state, saving from pause, loading old/new saves, and multiplayer inventory restrictions using a local ENet session. See `pr2-validacion.md`. Visual presentation, physical Android touch input and a full LAN session remain pending.

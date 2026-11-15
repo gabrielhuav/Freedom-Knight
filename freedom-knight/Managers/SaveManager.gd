@@ -117,9 +117,8 @@ func cargar_y_posicionar_datos(datos: Dictionary) -> void:
 		await get_tree().process_frame
 	
 	# 4. Buscamos y restauramos al jugador
-	var player = get_tree().get_first_node_in_group("Jugador")
-	if player == null:
-		player = get_tree().get_first_node_in_group("jugador")
+	# Los grupos tambien contienen la hitbox; usar el jugador registrado.
+	var player = PlayerRegistry.get_local_player()
 		
 	if player:
 		if player is CharacterBody2D:
@@ -173,6 +172,8 @@ func cargar_y_posicionar_datos(datos: Dictionary) -> void:
 			escenario.tiempo_partida = datos["tiempo_partida"]
 		if datos.has("dragon_spawned") and "dragon_spawned" in escenario:
 			escenario.dragon_spawned = datos["dragon_spawned"]
+		if datos.has("guardian_spawned") and "guardian_spawned" in escenario:
+			escenario.guardian_spawned = datos["guardian_spawned"]
 
 		# Cargar el mapa correcto si el índice es mayor a 0
 		if datos.has("indice_mapa_actual") and "indice_mapa_actual" in escenario:
