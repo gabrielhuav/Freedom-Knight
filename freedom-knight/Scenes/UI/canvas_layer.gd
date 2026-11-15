@@ -79,6 +79,11 @@ func _ready() -> void:
 	menu_pausa.process_mode = Node.PROCESS_MODE_ALWAYS
 	menu_pausa.hide()
 
+	# Interfaz independiente y compatible con controles tactiles.
+	var inv = Control.new()
+	inv.set_script(load("res://Scenes/UI/Objetos/inventario_ui.gd"))
+	add_child(inv)
+
 	if SaveManager.dificultad_juego == 2:
 		if boton_guard: boton_guard.hide()
 		if guard_timer_label: guard_timer_label.hide()
@@ -131,6 +136,12 @@ func _actualizar_feedback_boton(boton: TouchScreenButton, accion: String) -> voi
 # ─────────────────────────────────────────────────────────────
 func _input(event: InputEvent) -> void:
 	if SaveManager.escribiendo_texto: return
+	# Esc cierra primero la mochila sin abrir simultaneamente la pausa.
+	var inv = get_node_or_null("InventarioUI")
+	if inv and inv.has_method("esta_abierto") and inv.esta_abierto() and event.is_action_pressed("menu"):
+		inv.cerrar()
+		get_viewport().set_input_as_handled()
+		return
 	_procesar_joystick(event)
 	if event.is_action_pressed("menu"):
 		_on_menu_pressed()
@@ -212,6 +223,10 @@ func _on_resume_pressed() -> void:
 		focused.release_focus()
 
 func _on_menu_pressed() -> void:
+	var inv = get_node_or_null("InventarioUI")
+	if inv and inv.has_method("esta_abierto") and inv.esta_abierto():
+		inv.cerrar()
+		return
 	if menu_pausa.visible:
 		menu_pausa.hide()
 		_toggle_hud(true)
