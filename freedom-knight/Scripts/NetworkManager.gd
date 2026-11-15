@@ -35,6 +35,30 @@ signal server_disconnected_signal                 # Server went away
 var peer: ENetMultiplayerPeer = null
 var is_host: bool = false
 var game_running: bool = false
+var _velocidad_hasta: Dictionary = {}
+
+func conceder_pocion_velocidad(peer_id: int, duracion: float) -> bool:
+	if is_multiplayer_active() and not is_server():
+		return false
+	var ahora = Time.get_ticks_msec()
+	if ahora < int(_velocidad_hasta.get(peer_id, 0)):
+		return false
+	var segundos = clampf(duracion, 0.1, 30.0)
+	_velocidad_hasta[peer_id] = ahora + int(segundos * 1000)
+	if peer_id == get_my_peer_id():
+		_aplicar_pocion_velocidad(segundos)
+	else:
+		rpc_pocion_velocidad.rpc_id(peer_id, segundos)
+	return true
+
+@rpc("authority", "reliable")
+func rpc_pocion_velocidad(duracion: float) -> void:
+	_aplicar_pocion_velocidad(duracion)
+
+func _aplicar_pocion_velocidad(duracion: float) -> void:
+	var jugador = PlayerRegistry.get_local_player()
+	if is_instance_valid(jugador) and jugador.has_method("activar_pocion_velocidad"):
+		jugador.activar_pocion_velocidad(duracion)
 
 ## peer_id → { gamertag:String, ready:bool, alive:bool }
 var players: Dictionary = {}
@@ -390,6 +414,7 @@ func get_player_count() -> int:
 #  CLEANUP
 # ─────────────────────────────────────────────────────────────
 func cleanup() -> void:
+	_velocidad_hasta.clear()
 	stop_discovery()
 	if _udp_broadcaster:
 		_udp_broadcaster.close()

@@ -1,40 +1,70 @@
 extends Area2D
 
 @export var duracion_efecto: float = 5.0
+var consumida: bool = false
+
+func _ready() -> void:
+	add_to_group("pociones")
+	if NetworkManager.is_multiplayer_active() and not NetworkManager.is_server():
+		set_deferred("monitoring", false)
+		rpc_request_position.rpc_id(1)
 
 func _on_body_entered(body: Node2D) -> void:
-	# Verifica si quien tocó la poción es el jugador
-	if body.is_in_group("jugador"):
-		
-		# Valida si ya tiene la poción activa para no acumularla
-		if body.get("is_speed_boost_active"):
-			_mostrar_aviso_en_pantalla()
-			return
-			
-		# Activa el boost de velocidad en el script del caballero
-		body.is_speed_boost_active = true
-		
-		# Temporizador para apagar el efecto a los 5 segundos
-		var timer = get_tree().create_timer(duracion_efecto)
-		timer.timeout.connect(func():
-			if is_instance_valid(body):
-				body.is_speed_boost_active = false
-		)
-		
-		# Elimina la poción del mapa
-		queue_free()
+	if consumida or body != PlayerRegistry.get_local_player() or body.get("is_dead") == true:
+		return
+	if not body.has_method("activar_pocion_velocidad"):
+		return
+	if body.is_speed_boost_active:
+		_mostrar_aviso_en_pantalla()
+		return
+	if NetworkManager.is_multiplayer_active() and not NetworkManager.is_server():
+		rpc_request_use.rpc_id(1)
+	else:
+		_usar_en_servidor(NetworkManager.get_my_peer_id())
 
-func _mostrar_aviso_en_pantalla():
+func _usar_en_servidor(peer_id: int) -> void:
+	if consumida or (NetworkManager.is_multiplayer_active() and not NetworkManager.is_server()):
+		return
+	var jugador = PlayerRegistry.get_player(peer_id)
+	if not is_instance_valid(jugador) or jugador.get("is_dead") == true:
+		return
+	var posicion: Vector2 = jugador.get("net_position") if "net_position" in jugador else jugador.global_position
+	if global_position.distance_to(posicion) > 92.0:
+		return
+	if not NetworkManager.conceder_pocion_velocidad(peer_id, duracion_efecto):
+		if peer_id == NetworkManager.get_my_peer_id():
+			_mostrar_aviso_en_pantalla()
+		else:
+			rpc_aviso.rpc_id(peer_id)
+		return
+	consumida = true
+	# Solo el anfitrion elimina el nodo replicado por MultiplayerSpawner.
+	queue_free()
+
+@rpc("any_peer", "reliable")
+func rpc_request_use() -> void:
+	if NetworkManager.is_server():
+		_usar_en_servidor(multiplayer.get_remote_sender_id())
+
+@rpc("any_peer", "reliable")
+func rpc_request_position() -> void:
+	if NetworkManager.is_server():
+		rpc_set_position.rpc_id(multiplayer.get_remote_sender_id(), global_position)
+
+@rpc("authority", "call_local", "reliable")
+func rpc_set_position(pos: Vector2) -> void:
+	global_position = pos
+	set_deferred("monitoring", true)
+
+@rpc("authority", "reliable")
+func rpc_aviso() -> void:
+	_mostrar_aviso_en_pantalla()
+
+func _mostrar_aviso_en_pantalla() -> void:
 	var canvas = CanvasLayer.new()
 	var label = Label.new()
-	label.text = "Ya tienes una poción en uso, espera a que acabe su efecto para usar otra."
-	label.add_theme_color_override("font_color", Color(1, 0, 0)) # Rojo de advertencia
+	label.text = "Ya tienes una pocion de velocidad activa."
 	label.position = Vector2(200, 100)
-	
 	canvas.add_child(label)
 	get_tree().current_scene.add_child(canvas)
-	
-	var timer = get_tree().create_timer(2.0)
-	timer.timeout.connect(func():
-		canvas.queue_free()
-	)
+	get_tree().create_timer(2.0).timeout.connect(canvas.queue_free, CONNECT_ONE_SHOT)
