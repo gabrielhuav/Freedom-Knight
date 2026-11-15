@@ -1,0 +1,4 @@
+[gd_scene load_steps=2 format=3]
+[ext_resource type="PackedScene" path="res://Scenes/UI/Personajes/Heroe/caballero.tscn" id="1"]
+[node name="PartidaPrueba" type="Node2D"]
+[node name="Caballero" parent="." instance=ExtResource("1")]
