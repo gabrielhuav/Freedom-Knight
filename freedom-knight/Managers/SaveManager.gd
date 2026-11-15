@@ -140,7 +140,11 @@ func cargar_y_posicionar_datos(datos: Dictionary) -> void:
 		# Recalcular estadísticas derivadas del jugador
 		if "velocidad_base" in player and "speed" in player:
 			player.speed = min(600.0, player.velocidad_base + (player.nivel * 5.0))
-		if "dano_base" in player and "poder_ataque" in player:
+		# Cargar objetos y equipamiento tras recuperar nivel y fuerza.
+		# Las partidas antiguas (sin inventario_equipo) siguen siendo validas.
+		if player.has_method("restaurar_estado_equipo"):
+			player.restaurar_estado_equipo(datos.get("inventario_equipo", {}))
+		elif "dano_base" in player and "poder_ataque" in player:
 			player.poder_ataque = player.dano_base + floor(player.fuerza / 3.0) + floor(player.nivel / 2.0)
 			
 		# Forzar refresco visual de nivel y vida

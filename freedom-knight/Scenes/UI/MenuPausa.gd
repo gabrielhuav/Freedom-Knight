@@ -155,6 +155,7 @@ func _on_texture_button_pressed_guardar() -> void:
 			"experiencia": player.experiencia if "experiencia" in player else 0,
 			"fuerza": player.fuerza if "fuerza" in player else 0,
 			"salud_actual": player.salud_actual if "salud_actual" in player else 10,
+			"inventario_equipo": player.obtener_estado_equipo() if player.has_method("obtener_estado_equipo") else {},
 		}
 		
 		# Guardar gatos (mascotas) activos
