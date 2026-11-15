@@ -17,6 +17,6 @@
 - Usar ramas de trabajo y mantener los cambios ajenos intactos.
 - Usar Godot 4.6.x, actualmente 4.6.3. No migrar la version del motor como efecto secundario de editar escenas.
 - El proyecto Godot esta en `freedom-knight/`, no en la raiz ni en `juego/`.
-- Leer `README for IAS/README.md` y `README for IAS/onboarding-desarrolladores.md` antes de modificar el juego.
+- Revisar `freedom-knight/project.godot` y la configuracion actual de exportacion antes de modificar el juego; no depender de documentos retirados del repositorio.
 - Probar las funciones afectadas y sus regresiones. Distinguir las pruebas automatizadas de las pruebas visuales, Android y LAN en dispositivos fisicos.
 - Nunca solicitar ni registrar contrasenas de firma. No versionar keystores, credenciales ni nuevos binarios de exportacion.

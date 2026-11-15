@@ -13,4 +13,4 @@ Los asistentes deben entregar el resultado para revision y esperar esa aprobacio
 
 GitHub no permite que el autor apruebe su propio PR. Los PRs de contribuyentes requieren la revision del propietario indicado en `.github/CODEOWNERS`. Si Gabriel es el autor, el PR necesita una revision independiente y una decision explicita de Gabriel; antes de integrar se debe resolver el requisito de propietario con otro mantenedor autorizado por Gabriel, sin desactivar las protecciones.
 
-Usar Godot **4.6.x** (actualmente **4.6.3**) y abrir `freedom-knight/project.godot`. El contexto tecnico y las instrucciones de desarrollo estan en `README for IAS/`.
+Usar Godot **4.6.x** (actualmente **4.6.3**) y abrir `freedom-knight/project.godot`.
