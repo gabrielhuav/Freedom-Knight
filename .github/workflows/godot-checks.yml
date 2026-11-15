@@ -23,9 +23,6 @@ jobs:
       GODOT_VERSION: 4.6.3
       GODOT_BIN: Godot_v4.6.3-stable_linux.x86_64
       GODOT_PROJECT: freedom-knight
-      XDG_DATA_HOME: ${{ runner.temp }}/godot-data
-      XDG_CONFIG_HOME: ${{ runner.temp }}/godot-config
-      XDG_CACHE_HOME: ${{ runner.temp }}/godot-cache
     steps:
       - uses: actions/checkout@v4
         with:
@@ -36,6 +33,11 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/godot" "$RUNNER_TEMP/godot-logs"
+          {
+            echo "XDG_DATA_HOME=$RUNNER_TEMP/godot-data"
+            echo "XDG_CONFIG_HOME=$RUNNER_TEMP/godot-config"
+            echo "XDG_CACHE_HOME=$RUNNER_TEMP/godot-cache"
+          } >> "$GITHUB_ENV"
           archive="$RUNNER_TEMP/godot/godot.zip"
           curl --fail --location --retry 3 \
             "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable/${GODOT_BIN}.zip" \
