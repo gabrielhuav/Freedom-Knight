@@ -82,6 +82,7 @@ const SYNC_RATE_REMOTE: float = 0.05  # 20Hz para jugadores remotos
 #  UI
 # ─────────────────────────────────────────────────────────────
 var label_contador_muertes : Label
+var label_vidas_restantes: Label
 var max_pociones_en_escena : int   = 3
 var intervalo_pocion_min   : float = 12.0
 var intervalo_pocion_max   : float = 22.0
@@ -116,6 +117,8 @@ func _ready() -> void:
 
 	# Configurar jugador local
 	_setup_local_player()
+	if not es_boss_rush and not NetworkManager.is_multiplayer_active():
+		player.configurar_vidas_arcade(SaveManager.dificultad_juego)
 
 	# Spawnar jugadores remotos si hay red
 	if NetworkManager.is_multiplayer_active():
@@ -484,6 +487,27 @@ func _crear_ui_contador() -> void:
 		label_contador_muertes.text = "Enemigos Derrotados: 0\nNivel de Dificultad: 1"
 	label_contador_muertes.position = Vector2(20, 150)
 	canvas.add_child(label_contador_muertes)
+
+	if not es_boss_rush and not NetworkManager.is_multiplayer_active():
+		label_vidas_restantes = Label.new()
+		label_vidas_restantes.name = "VidasRestantes"
+		label_vidas_restantes.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		label_vidas_restantes.add_theme_font_size_override("font_size", 20)
+		label_vidas_restantes.add_theme_color_override("font_color", Color(1.0, 0.9, 0.5))
+		label_vidas_restantes.add_theme_color_override("font_outline_color", Color.BLACK)
+		label_vidas_restantes.add_theme_constant_override("outline_size", 4)
+		canvas.add_child(label_vidas_restantes)
+		label_vidas_restantes.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+		label_vidas_restantes.offset_left = -280
+		label_vidas_restantes.offset_right = -20
+		label_vidas_restantes.offset_top = 65
+		label_vidas_restantes.offset_bottom = 95
+		label_vidas_restantes.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		player.vidas_actualizadas.connect(_actualizar_contador_vidas)
+		_actualizar_contador_vidas(player.vidas_actuales, player.vidas_maximas)
+
+func _actualizar_contador_vidas(actuales: int, maximas: int) -> void:
+	label_vidas_restantes.text = "Vidas restantes: %d / %d" % [actuales, maximas]
 
 # ─────────────────────────────────────────────────────────────
 #  ENEMIES — Solo host

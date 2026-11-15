@@ -11,6 +11,7 @@ extends CharacterBody2D
 
 signal nivel_subido
 signal inventario_actualizado
+signal vidas_actualizadas(actuales: int, maximas: int)
 
 const ANIM_IDLE   = "idle"
 const ANIM_MOVE   = "move"
@@ -474,6 +475,7 @@ func _morir() -> void:
 	var muerte_en_red = NetworkManager.is_multiplayer_active()
 	if not muerte_en_red:
 		vidas_actuales = maxi(0, vidas_actuales - 1)
+		vidas_actualizadas.emit(vidas_actuales, vidas_maximas)
 	is_attacking = false
 	is_guarding = false
 	_reiniciar_sprint()
@@ -553,9 +555,15 @@ func _respawn() -> void:
 	if escenario.has_method("reanudar_tras_reaparicion"):
 		escenario.reanudar_tras_reaparicion()
 
+func configurar_vidas_arcade(dificultad: int) -> void:
+	vidas_maximas = 3 - clampi(dificultad, 0, 2)
+	vidas_actuales = vidas_maximas
+	vidas_actualizadas.emit(vidas_actuales, vidas_maximas)
+
 func restaurar_vidas(datos: Dictionary) -> void:
 	vidas_maximas = clampi(int(datos.get("vidas_maximas", vidas_maximas)), 1, 99)
 	vidas_actuales = clampi(int(datos.get("vidas_actuales", vidas_maximas)), 0, vidas_maximas)
+	vidas_actualizadas.emit(vidas_actuales, vidas_maximas)
 
 func _get_kill_count() -> int:
 	var escenario = get_tree().current_scene
