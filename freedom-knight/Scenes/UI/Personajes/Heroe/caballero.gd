@@ -10,6 +10,7 @@
 extends CharacterBody2D
 
 signal nivel_subido
+signal inventario_actualizado
 
 const ANIM_IDLE   = "idle"
 const ANIM_MOVE   = "move"
@@ -18,6 +19,13 @@ const ANIM_GUARD  = "guard"
 const ANIM_DEATH  = "death"
 const GUARD_MAX           : float = 5.0
 const GUARD_RECHARGE_RATE : float = 1.0
+const CAPACIDAD_INVENTARIO: int = 12
+const CATALOGO_EQUIPO := {
+	"espada_hierro": {"nombre": "Espada de hierro", "tipo": "arma", "ataque": 2, "defensa": 0},
+	"espada_sombras": {"nombre": "Espada de las sombras", "tipo": "arma", "ataque": 4, "defensa": 0},
+	"armadura_cuero": {"nombre": "Armadura de cuero", "tipo": "armadura", "ataque": 0, "defensa": 1},
+	"armadura_acero": {"nombre": "Armadura de acero", "tipo": "armadura", "ataque": 0, "defensa": 3},
+}
 
 # ─────────────────────────────────────────────────────────────
 #  EXPORTS
@@ -31,6 +39,8 @@ const GUARD_RECHARGE_RATE : float = 1.0
 @export var fuerza       : int = 0
 var dano_base    : int   = 2
 var salud_actual : int
+var inventario_equipo: Array[String] = []
+var equipo_equipado: Dictionary = {"arma": "", "armadura": ""}
 var guard_energy : float = GUARD_MAX
 var is_guarding  : bool  = false
 
@@ -40,14 +50,12 @@ var experiencia   : int   = 0
 var max_nivel     : int   = 1000
 var velocidad_base: float = 200.0
 
-@export_group("Sprint y Poción de Velocidad")
-@export var multiplicador_sprint       : float = 1.5
-@export var multiplicador_pocion_azul  : float = 2.2  # Superior al sprint normal
-@export var ventana_doble_toque_ms     : int   = 300
-var is_sprinting            : bool = false
-var is_speed_boost_active   : bool = false
-var estaba_moviendose       : bool = false
-var tiempo_ultimo_toque     : int  = -10000
+@export_group("Sprint")
+@export var multiplicador_sprint   : float = 1.5
+@export var ventana_doble_toque_ms : int   = 300
+var is_sprinting        : bool = false
+var estaba_moviendose   : bool = false
+var tiempo_ultimo_toque : int  = -10000
 
 # ─────────────────────────────────────────────────────────────
 #  NODOS
@@ -102,6 +110,7 @@ func _ready() -> void:
 	set_collision_mask_value(1, true)
 
 	salud_actual = vida_maxima
+	_recalcular_estadisticas_equipo()
 
 	# HitboxEspada
 	hitbox.set_collision_layer_value(1, false)
@@ -164,9 +173,11 @@ func _physics_process(delta: float) -> void:
 	if is_instance_valid(label_nivel): label_nivel.visible = not is_paused
 	
 	if is_paused:
+		_reiniciar_sprint()
 		return
 
 	if is_dead:
+		_reiniciar_sprint()
 		if NetworkManager.is_multiplayer_active():
 			# Buscar jugadores vivos en el registry (incluye el caballero_remoto del host)
 			var vivos = PlayerRegistry.get_alive_players()
@@ -197,11 +208,10 @@ func _physics_process(delta: float) -> void:
 	if Input.is_action_just_pressed("attack") and not is_attacking and not is_guarding:
 		_execute_attack()
 
-	# Movement & Speed logic (Sprint + Potion Boost)
+	# Movement
 	if is_guarding or is_attacking:
 		velocity = Vector2.ZERO
-		is_sprinting = false
-		estaba_moviendose = false
+		_reiniciar_sprint()
 	else:
 		var se_esta_moviendo = direction.length() > 0.2
 		
@@ -216,12 +226,9 @@ func _physics_process(delta: float) -> void:
 				
 		estaba_moviendose = se_esta_moviendo
 		
-		# Cálculo final de la velocidad con prioridad a la poción azul
 		var velocidad_final = speed
-		if is_speed_boost_active:
-			velocidad_final = speed * multiplicador_pocion_azul
-		elif is_sprinting:
-			velocidad_final = speed * multiplicador_sprint
+		if is_sprinting:
+			velocidad_final *= multiplicador_sprint
 			
 		velocity = direction * velocidad_final
 
@@ -245,11 +252,99 @@ func _physics_process(delta: float) -> void:
 			_sync_timer = 0.0
 			_send_state_sync()
 
+func _reiniciar_sprint() -> void:
+	# Un ataque, defensa o pausa invalida el toque anterior. Mantener la
+	# direccion pulsada al terminar no cuenta como un segundo toque.
+	is_sprinting = false
+	estaba_moviendose = false
+	tiempo_ultimo_toque = -10000
+
+
 func _get_move_direction() -> Vector2:
 	var ui = get_tree().current_scene.find_child("Botones", true)
 	if ui and "direccion" in ui and ui.direccion != Vector2.ZERO:
 		return ui.direccion
 	return Input.get_vector("left", "right", "up", "down")
+
+
+# ─────────────────────────────────────────────────────────────
+#  INVENTARIO Y EQUIPAMIENTO (ARCADE INDIVIDUAL)
+# ─────────────────────────────────────────────────────────────
+func obtener_datos_equipo(item_id: String) -> Dictionary:
+	return CATALOGO_EQUIPO.get(item_id, {})
+
+
+func agregar_equipo(item_id: String) -> bool:
+	if NetworkManager.is_multiplayer_active() or is_dead:
+		return false
+	if not CATALOGO_EQUIPO.has(item_id):
+		return false
+	if inventario_equipo.size() >= CAPACIDAD_INVENTARIO:
+		print("[Inventario] Mochila llena (%d objetos)" % CAPACIDAD_INVENTARIO)
+		return false
+	inventario_equipo.append(item_id)
+	inventario_actualizado.emit()
+	print("[Inventario] Recogido: ", CATALOGO_EQUIPO[item_id]["nombre"])
+	return true
+
+
+func equipar_equipo(indice: int) -> void:
+	if NetworkManager.is_multiplayer_active() or is_dead:
+		return
+	if indice < 0 or indice >= inventario_equipo.size():
+		return
+	var item_id = inventario_equipo[indice]
+	var tipo: String = CATALOGO_EQUIPO[item_id]["tipo"]
+	# Pulsar sobre el mismo objeto equipado lo desequipa.
+	if equipo_equipado[tipo] == item_id:
+		equipo_equipado[tipo] = ""
+	else:
+		equipo_equipado[tipo] = item_id
+	_recalcular_estadisticas_equipo()
+	inventario_actualizado.emit()
+
+
+func obtener_defensa_equipo() -> int:
+	var item_id: String = equipo_equipado["armadura"]
+	if CATALOGO_EQUIPO.has(item_id):
+		return int(CATALOGO_EQUIPO[item_id]["defensa"])
+	return 0
+
+
+func _recalcular_estadisticas_equipo() -> void:
+	var bonus_ataque: int = 0
+	var item_id: String = equipo_equipado["arma"]
+	if CATALOGO_EQUIPO.has(item_id):
+		bonus_ataque = int(CATALOGO_EQUIPO[item_id]["ataque"])
+	poder_ataque = dano_base + int(floor(fuerza / 3.0)) + int(floor(nivel / 2.0)) + bonus_ataque
+
+
+func obtener_estado_equipo() -> Dictionary:
+	return {
+		"inventario": inventario_equipo.duplicate(),
+		"equipado": equipo_equipado.duplicate()
+	}
+
+
+func restaurar_estado_equipo(datos: Dictionary) -> void:
+	inventario_equipo.clear()
+	equipo_equipado = {"arma": "", "armadura": ""}
+	var guardados = datos.get("inventario", [])
+	if typeof(guardados) == TYPE_ARRAY:
+		for id in guardados:
+			if typeof(id) == TYPE_STRING and CATALOGO_EQUIPO.has(id):
+				if inventario_equipo.size() >= CAPACIDAD_INVENTARIO:
+					break
+				inventario_equipo.append(id)
+	var equipado_guardado = datos.get("equipado", {})
+	if typeof(equipado_guardado) == TYPE_DICTIONARY:
+		for tipo in ["arma", "armadura"]:
+			var id: String = str(equipado_guardado.get(tipo, ""))
+			if inventario_equipo.has(id) and CATALOGO_EQUIPO.has(id):
+				if CATALOGO_EQUIPO[id]["tipo"] == tipo:
+					equipo_equipado[tipo] = id
+	_recalcular_estadisticas_equipo()
+	inventario_actualizado.emit()
 
 # ─────────────────────────────────────────────────────────────
 #  ANIMATIONS
@@ -320,7 +415,7 @@ func recibir_dano(cantidad: int) -> void:
 	if NetworkManager.is_multiplayer_active() and not NetworkManager.is_server():
 		return
 
-	var defensa      = floor(nivel / 3.0)
+	var defensa      = floor(nivel / 3.0) + obtener_defensa_equipo()
 	var dano_recibido = max(1, cantidad - defensa)
 	salud_actual     -= dano_recibido
 	salud_actual     = clampi(salud_actual, 0, vida_maxima)
@@ -619,7 +714,7 @@ func ganar_experiencia(cantidad: int) -> void:
 func _subir_de_nivel() -> void:
 	nivel_subido.emit()
 	speed         = min(600.0, velocidad_base + (nivel * 5.0))
-	poder_ataque  = dano_base + floor(fuerza / 3.0) + floor(nivel / 2.0)
+	_recalcular_estadisticas_equipo()
 
 	var tween = create_tween()
 	sprite.modulate = Color.YELLOW
@@ -648,7 +743,7 @@ func _actualizar_ui_nivel() -> void:
 
 func mejorar_fuerza(cantidad: int) -> void:
 	fuerza       += cantidad
-	poder_ataque  = dano_base + floor(fuerza / 3.0) + floor(nivel / 2.0)
+	_recalcular_estadisticas_equipo()
 	print("[Caballero] Fuerza: %d | Daño: %d" % [fuerza, poder_ataque])
 	var escenario = get_tree().current_scene
 	if "fuerza_jugador" in escenario:

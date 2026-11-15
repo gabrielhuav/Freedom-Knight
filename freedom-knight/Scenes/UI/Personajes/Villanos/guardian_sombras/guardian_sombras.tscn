@@ -1,0 +1,31 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://Scenes/UI/Personajes/Villanos/guardian_sombras/guardian_sombras.gd" id="1_script"]
+[ext_resource type="Texture2D" path="res://Scenes/UI/Personajes/Villanos/jefe/boss-neutro.png" id="2_sprite"]
+
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_boss"]
+radius = 146.0
+height = 488.0
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_attack"]
+radius = 306.86316
+
+[node name="GuardianSombras" type="CharacterBody2D"]
+script = ExtResource("1_script")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(-2, 6)
+shape = SubResource("CapsuleShape2D_boss")
+
+[node name="Area2D" type="Area2D" parent="."]
+position = Vector2(4, 4)
+
+[node name="area_ataque" type="CollisionShape2D" parent="Area2D"]
+position = Vector2(-7, -5)
+shape = SubResource("CircleShape2D_attack")
+
+[node name="BossNeutro" type="Sprite2D" parent="."]
+position = Vector2(3, -8)
+texture = ExtResource("2_sprite")

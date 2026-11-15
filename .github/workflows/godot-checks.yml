@@ -1,18 +1,158 @@
 name: Godot checks
+
 on:
   pull_request:
-  push:
     branches: [main]
+  push:
+    branches: [main, codex/pr2-ci]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: godot-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  gdscript-syntax:
-    runs-on: ubuntu-latest
+  validate-godot:
+    name: Godot 4.6.3 - import, resources and startup
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GODOT_VERSION: 4.6.3
+      GODOT_BIN: Godot_v4.6.3-stable_linux.x86_64
+      GODOT_PROJECT: freedom-knight
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-      - run: pip install "gdtoolkit==4.*"
-      - name: Parse all GDScript files
-        run: find freedom-knight -name "*.gd" -print0 | xargs -0 gdparse
-      - name: Test matrix exists
-        run: test -f docs/pruebas.md
+          persist-credentials: false
+
+      - name: Install the pinned official Godot binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/godot" "$RUNNER_TEMP/godot-logs"
+          {
+            echo "XDG_DATA_HOME=$RUNNER_TEMP/godot-data"
+            echo "XDG_CONFIG_HOME=$RUNNER_TEMP/godot-config"
+            echo "XDG_CACHE_HOME=$RUNNER_TEMP/godot-cache"
+          } >> "$GITHUB_ENV"
+          archive="$RUNNER_TEMP/godot/godot.zip"
+          curl --fail --location --retry 3 \
+            "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable/${GODOT_BIN}.zip" \
+            --output "$archive"
+          echo "d0bc2113065e481c9c2c2b2c37daa4e8be3fe9e27f0ab9ab0b6096e9a37907f3  $archive" | sha256sum --check -
+          unzip -q "$archive" -d "$RUNNER_TEMP/godot"
+          chmod +x "$RUNNER_TEMP/godot/$GODOT_BIN"
+          echo "$RUNNER_TEMP/godot" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/godot/$GODOT_BIN" --version | grep -E '^4\.6\.3\.stable'
+
+      - name: Prepare temporary resource validation
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import pathlib
+          import subprocess
+
+          project = pathlib.Path(os.environ['GODOT_PROJECT'])
+          config = (project / 'project.godot').read_text(encoding='utf-8-sig')
+          assert 'PackedStringArray("4.6", "Forward Plus")' in config, 'Keep the project on Godot 4.6 / Forward Plus'
+          prefix = project.as_posix() + '/'
+          tracked = subprocess.check_output(['git', 'ls-files', '-z', '--', str(project)]).decode().split('\0')
+          resources = ['res://' + p[len(prefix):] for p in tracked if p.endswith(('.gd', '.tscn'))]
+          assert resources, 'No scripts or scenes found'
+          runner = project / 'ci_validation'
+          runner.mkdir()
+          (runner / 'files.json').write_text(json.dumps(resources), encoding='utf-8')
+          (runner / 'runtime.gd').write_text('''extends Node
+          var failures: int = 0
+          func _ready() -> void:
+              call_deferred("validate_resources")
+          func validate_resources() -> void:
+              var paths = JSON.parse_string(FileAccess.get_file_as_string("res://ci_validation/files.json"))
+              for path in paths:
+                  var resource = load(path)
+                  if resource == null:
+                      push_error("Could not load: " + path)
+                      failures += 1
+                  elif resource is PackedScene:
+                      var instance = resource.instantiate()
+                      if instance == null:
+                          push_error("Could not instantiate: " + path)
+                          failures += 1
+                      else:
+                          instance.free()
+                  elif resource is GDScript and not resource.source_code.strip_edges().is_empty():
+                      if not resource.can_instantiate():
+                          push_error("Invalid GDScript: " + path)
+                          failures += 1
+              print("RESOURCE_CHECK: %d scripts/scenes, %d failures" % [paths.size(), failures])
+              get_tree().quit(1 if failures else 0)
+          ''', encoding='utf-8')
+          (runner / 'runtime.tscn').write_text('''[gd_scene load_steps=2 format=3]
+          [ext_resource type="Script" path="res://ci_validation/runtime.gd" id="1"]
+          [node name="ResourceValidation" type="Node"]
+          script = ExtResource("1")
+          ''', encoding='utf-8')
+          PY
+
+      - name: Import scripts and assets from a clean checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          log="$RUNNER_TEMP/godot-logs/import.log"
+          timeout 300s "$GODOT_BIN" --headless --path "$GODOT_PROJECT" --editor --import --quit 2>&1 | tee "$log"
+          if grep -Eq 'SCRIPT ERROR:|ERROR:|Parse Error:|Compile Error:' "$log"; then
+            exit 1
+          fi
+
+      - name: Load every script and instantiate every scene
+        shell: bash
+        run: |
+          set -euo pipefail
+          log="$RUNNER_TEMP/godot-logs/resources.log"
+          timeout 120s "$GODOT_BIN" --headless --path "$GODOT_PROJECT" res://ci_validation/runtime.tscn 2>&1 | tee "$log"
+          if grep -Eq 'SCRIPT ERROR:|ERROR:|Parse Error:|Compile Error:' "$log"; then
+            exit 1
+          fi
+          grep -Eq 'RESOURCE_CHECK: [0-9]+ scripts/scenes, 0 failures' "$log"
+
+      - name: Start the main scene
+        shell: bash
+        run: |
+          set -euo pipefail
+          log="$RUNNER_TEMP/godot-logs/startup.log"
+          timeout 60s "$GODOT_BIN" --headless --path "$GODOT_PROJECT" --quit-after 120 2>&1 | tee "$log"
+          python3 - "$log" <<'PY'
+          import pathlib
+          import re
+          import sys
+
+          log = pathlib.Path(sys.argv[1]).read_text(encoding='utf-8', errors='replace')
+          # This exact diagnostic is inherited from the existing main-menu shutdown.
+          # Keep it visible; do not suppress other resource leaks or engine errors.
+          known = 'ERROR: 1 resources still in use at exit (run with --verbose for details).'
+          shutdown_context = (
+              'WARNING: ObjectDB instances leaked at exit (run with --verbose for details).' in log
+              and 'at: clear (core/io/resource.cpp:810)' in log
+          )
+          errors = [line for line in log.splitlines() if re.search(r'SCRIPT ERROR:|ERROR:|Parse Error:|Compile Error:', line)]
+          unexpected = [line for line in errors if not (shutdown_context and line == known)]
+          if unexpected:
+              print('\n'.join(unexpected))
+              sys.exit(1)
+          if known in errors:
+              print('::warning::Godot reported the known one-resource main-menu shutdown diagnostic; see startup.log. This check does not certify absence of leaks.')
+          PY
+
+      - name: Keep diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: godot-validation-logs
+          path: ${{ runner.temp }}/godot-logs/*.log
+          if-no-files-found: ignore
+          retention-days: 7

@@ -58,9 +58,8 @@ func _on_texture_button_pressed_salir() -> void:
 
 
 func _on_texture_button_pressed_guardar() -> void:
-	var player = get_tree().get_first_node_in_group("Jugador")
-	if not player:
-		player = get_tree().get_first_node_in_group("jugador")
+	# No confundir al jugador con HitboxEspada, que comparte sus grupos.
+	var player = PlayerRegistry.get_local_player()
 	if not player:
 		push_error("No se encontró el nodo del jugador para guardar.")
 		return
@@ -155,6 +154,7 @@ func _on_texture_button_pressed_guardar() -> void:
 			"experiencia": player.experiencia if "experiencia" in player else 0,
 			"fuerza": player.fuerza if "fuerza" in player else 0,
 			"salud_actual": player.salud_actual if "salud_actual" in player else 10,
+			"inventario_equipo": player.obtener_estado_equipo() if player.has_method("obtener_estado_equipo") else {},
 		}
 		
 		# Guardar gatos (mascotas) activos
@@ -191,6 +191,8 @@ func _on_texture_button_pressed_guardar() -> void:
 				datos_a_guardar["tiempo_partida"] = escenario.tiempo_partida
 			if "dragon_spawned" in escenario:
 				datos_a_guardar["dragon_spawned"] = escenario.dragon_spawned
+			if "guardian_spawned" in escenario:
+				datos_a_guardar["guardian_spawned"] = escenario.guardian_spawned
 		
 		SaveManager.guardar_datos_con_nombre(nombre_partida, datos_a_guardar)
 		print("Partida guardada con éxito: " + nombre_partida)
