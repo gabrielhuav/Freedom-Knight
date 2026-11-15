@@ -56,6 +56,9 @@ var velocidad_base: float = 200.0
 var is_sprinting        : bool = false
 var estaba_moviendose   : bool = false
 var tiempo_ultimo_toque : int  = -10000
+var is_speed_boost_active: bool = false
+@export var multiplicador_pocion_azul: float = 2.2
+var _timer_velocidad: Timer
 
 # ─────────────────────────────────────────────────────────────
 #  NODOS
@@ -227,7 +230,9 @@ func _physics_process(delta: float) -> void:
 		estaba_moviendose = se_esta_moviendo
 		
 		var velocidad_final = speed
-		if is_sprinting:
+		if is_speed_boost_active:
+			velocidad_final *= multiplicador_pocion_azul
+		elif is_sprinting:
 			velocidad_final *= multiplicador_sprint
 			
 		velocity = direction * velocidad_final
@@ -251,6 +256,20 @@ func _physics_process(delta: float) -> void:
 		if _sync_timer >= SYNC_RATE:
 			_sync_timer = 0.0
 			_send_state_sync()
+
+func activar_pocion_velocidad(duracion: float) -> void:
+	if is_dead or is_speed_boost_active:
+		return
+	is_speed_boost_active = true
+	_timer_velocidad = Timer.new()
+	_timer_velocidad.one_shot = true
+	add_child(_timer_velocidad)
+	_timer_velocidad.timeout.connect(func():
+		is_speed_boost_active = false
+		_timer_velocidad.queue_free()
+	)
+	_timer_velocidad.start(clampf(duracion, 0.1, 30.0))
+
 
 func _reiniciar_sprint() -> void:
 	# Un ataque, defensa o pausa invalida el toque anterior. Mantener la
