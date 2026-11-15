@@ -86,7 +86,7 @@ var max_pociones_en_escena : int   = 3
 var intervalo_pocion_min   : float = 12.0
 var intervalo_pocion_max   : float = 22.0
 # NUEVO: probabilidad (0.0 a 1.0) de que una poción que aparece sea la de velocidad (azul)
-var probabilidad_pocion_velocidad : float = 0.60
+var probabilidad_pocion_velocidad : float = 0.50
 var _siguiente_jugador_pocion: int = 0
 
 # ─────────────────────────────────────────────────────────────
