@@ -86,7 +86,7 @@ var max_pociones_en_escena : int   = 3
 var intervalo_pocion_min   : float = 12.0
 var intervalo_pocion_max   : float = 22.0
 # NUEVO: probabilidad (0.0 a 1.0) de que una poción que aparece sea la de velocidad (azul)
-var probabilidad_pocion_velocidad : float = 0.35
+var probabilidad_pocion_velocidad : float = 0.60
 var _siguiente_jugador_pocion: int = 0
 
 # ─────────────────────────────────────────────────────────────
@@ -962,6 +962,7 @@ func _spawnear_pocion() -> void:
 		nueva_pocion.rpc_set_position.rpc(spawn_pos)
 	else:
 		nueva_pocion.global_position = spawn_pos
+	print("[POCION] Aparece %s en %s" % ["velocidad" if es_velocidad else "vida", spawn_pos])
 
 # ─────────────────────────────────────────────────────────────
 #  NPCs — Solo host
