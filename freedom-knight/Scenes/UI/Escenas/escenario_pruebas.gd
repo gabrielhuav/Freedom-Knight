@@ -82,11 +82,13 @@ const SYNC_RATE_REMOTE: float = 0.05  # 20Hz para jugadores remotos
 #  UI
 # ─────────────────────────────────────────────────────────────
 var label_contador_muertes : Label
+var label_vidas_restantes: Label
 var max_pociones_en_escena : int   = 3
 var intervalo_pocion_min   : float = 12.0
 var intervalo_pocion_max   : float = 22.0
 # NUEVO: probabilidad (0.0 a 1.0) de que una poción que aparece sea la de velocidad (azul)
-var probabilidad_pocion_velocidad : float = 0.35
+var probabilidad_pocion_velocidad : float = 0.50
+var _siguiente_jugador_pocion: int = 0
 
 # ─────────────────────────────────────────────────────────────
 #  LÍMITES DEL MAPA
@@ -115,6 +117,8 @@ func _ready() -> void:
 
 	# Configurar jugador local
 	_setup_local_player()
+	if not es_boss_rush and not NetworkManager.is_multiplayer_active():
+		player.configurar_vidas_arcade(SaveManager.dificultad_juego)
 
 	# Spawnar jugadores remotos si hay red
 	if NetworkManager.is_multiplayer_active():
@@ -160,6 +164,16 @@ func _should_run_host_logic() -> bool:
 	# Solitario: siempre corre lógica
 	# Multijugador: solo el host
 	return not NetworkManager.is_multiplayer_active() or NetworkManager.is_server()
+
+func reanudar_tras_reaparicion() -> void:
+	# Los bucles que terminaron mientras no quedaba nadie vivo deben volver.
+	if not _should_run_host_logic(): return
+	if es_boss_rush:
+		_mantener_jefes.call_deferred()
+	else:
+		_mantener_caballeros.call_deferred()
+		_mantener_lanceros.call_deferred()
+		_mantener_vikingos.call_deferred()
 
 func _setup_local_player() -> void:
 	# El caballero mantiene su nombre "Caballero" en la escena.
@@ -473,6 +487,27 @@ func _crear_ui_contador() -> void:
 		label_contador_muertes.text = "Enemigos Derrotados: 0\nNivel de Dificultad: 1"
 	label_contador_muertes.position = Vector2(20, 150)
 	canvas.add_child(label_contador_muertes)
+
+	if not es_boss_rush and not NetworkManager.is_multiplayer_active():
+		label_vidas_restantes = Label.new()
+		label_vidas_restantes.name = "VidasRestantes"
+		label_vidas_restantes.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		label_vidas_restantes.add_theme_font_size_override("font_size", 20)
+		label_vidas_restantes.add_theme_color_override("font_color", Color(1.0, 0.9, 0.5))
+		label_vidas_restantes.add_theme_color_override("font_outline_color", Color.BLACK)
+		label_vidas_restantes.add_theme_constant_override("outline_size", 4)
+		canvas.add_child(label_vidas_restantes)
+		label_vidas_restantes.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+		label_vidas_restantes.offset_left = -280
+		label_vidas_restantes.offset_right = -20
+		label_vidas_restantes.offset_top = 65
+		label_vidas_restantes.offset_bottom = 95
+		label_vidas_restantes.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		player.vidas_actualizadas.connect(_actualizar_contador_vidas)
+		_actualizar_contador_vidas(player.vidas_actuales, player.vidas_maximas)
+
+func _actualizar_contador_vidas(actuales: int, maximas: int) -> void:
+	label_vidas_restantes.text = "Vidas restantes: %d / %d" % [actuales, maximas]
 
 # ─────────────────────────────────────────────────────────────
 #  ENEMIES — Solo host
@@ -924,8 +959,20 @@ func _spawnear_pocion() -> void:
 	timer_pociones.start()
 	if not PlayerRegistry.any_player_alive(): return
 	if not pocion_scene: return
-	var pociones_vivas = get_tree().get_nodes_in_group("pociones").size()
-	if pociones_vivas >= max_pociones_en_escena: return
+	var jugadores = PlayerRegistry.get_alive_players()
+	if jugadores.is_empty() or max_pociones_en_escena <= 0: return
+	var objetivo = jugadores[_siguiente_jugador_pocion % jugadores.size()]
+	_siguiente_jugador_pocion += 1
+	# Renovar la mas antigua evita que tres pociones olvidadas bloqueen
+	# todas las siguientes apariciones durante el resto de la partida.
+	var pociones = get_tree().get_nodes_in_group("pociones").filter(
+		func(p): return is_instance_valid(p) and not p.is_queued_for_deletion()
+	)
+	if pociones.size() >= max_pociones_en_escena:
+		pociones.sort_custom(func(a, b):
+			return int(a.get_meta("pocion_creada_ms", 0)) < int(b.get_meta("pocion_creada_ms", 0))
+		)
+		pociones[0].queue_free()
 
 	# NUEVO: decidir si esta poción será de velocidad (azul) o de vida
 	var es_velocidad: bool = pocion_velocidad_scene != null and randf() < probabilidad_pocion_velocidad
@@ -933,19 +980,23 @@ func _spawnear_pocion() -> void:
 	var prefijo_nombre: String = "PocionVel_" if es_velocidad else "Pocion_"
 
 	var nueva_pocion = escena_elegida.instantiate()  # NUEVO: antes era pocion_scene.instantiate()
+	nueva_pocion.set_meta("pocion_creada_ms", Time.get_ticks_msec())
 	nueva_pocion.name = prefijo_nombre + str(Time.get_ticks_msec()) + "_" + str(randi() % 1000)
 	add_child(nueva_pocion, true)
 	nueva_pocion.add_to_group("pociones")
 	if "cantidad_curacion" in nueva_pocion:
 		nueva_pocion.cantidad_curacion = 2
 		
-	var spawn_pos = _pos_aleatoria()
+	# Utilizar la zona valida cerca de un jugador, no todo el mapa.
+	# En LAN se rota entre los jugadores vivos; el host replica la posicion.
+	var spawn_pos = _pos_aleatoria_cerca_de_posicion(objetivo.global_position, 80.0, 180.0)
 	# NUEVO: solo usar el RPC si la poción realmente tiene rpc_set_position
 	# (así la poción de velocidad no truena en multijugador si aún no lo tiene)
 	if NetworkManager.is_multiplayer_active() and nueva_pocion.has_method("rpc_set_position"):
 		nueva_pocion.rpc_set_position.rpc(spawn_pos)
 	else:
 		nueva_pocion.global_position = spawn_pos
+	print("[POCION] Aparece %s en %s" % ["velocidad" if es_velocidad else "vida", spawn_pos])
 
 # ─────────────────────────────────────────────────────────────
 #  NPCs — Solo host

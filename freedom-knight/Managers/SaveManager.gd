@@ -135,6 +135,8 @@ func cargar_y_posicionar_datos(datos: Dictionary) -> void:
 			player.fuerza = datos["fuerza"]
 		if datos.has("salud_actual") and "salud_actual" in player:
 			player.salud_actual = datos["salud_actual"]
+		if player.has_method("restaurar_vidas"):
+			player.restaurar_vidas(datos)
 			
 		# Recalcular estadísticas derivadas del jugador
 		if "velocidad_base" in player and "speed" in player:

@@ -11,6 +11,7 @@ extends CharacterBody2D
 
 signal nivel_subido
 signal inventario_actualizado
+signal vidas_actualizadas(actuales: int, maximas: int)
 
 const ANIM_IDLE   = "idle"
 const ANIM_MOVE   = "move"
@@ -35,6 +36,10 @@ const CATALOGO_EQUIPO := {
 
 @export_group("Combate")
 @export var vida_maxima  : int = 10
+@export_range(1, 99) var vidas_maximas: int = 3
+var vidas_actuales: int = 3
+var _pantalla_muerte: CanvasLayer
+var _invulnerable: bool = false
 @export var poder_ataque : int = 2
 @export var fuerza       : int = 0
 var dano_base    : int   = 2
@@ -113,6 +118,8 @@ func _ready() -> void:
 	set_collision_mask_value(1, true)
 
 	salud_actual = vida_maxima
+	vidas_maximas = clampi(vidas_maximas, 1, 99)
+	vidas_actuales = vidas_maximas
 	_recalcular_estadisticas_equipo()
 
 	# HitboxEspada
@@ -130,6 +137,8 @@ func _ready() -> void:
 	actualizar_ui_corazones()
 
 func _exit_tree() -> void:
+	if is_instance_valid(_pantalla_muerte):
+		_pantalla_muerte.queue_free()
 	PlayerRegistry.unregister(my_peer_id)
 
 func _setup_labels() -> void:
@@ -424,7 +433,7 @@ func get_guard_energy() -> float:
 #  instancia del jugador. El cliente no calcula daño.
 # ─────────────────────────────────────────────────────────────
 func recibir_dano(cantidad: int) -> void:
-	if is_dead: return
+	if is_dead or _invulnerable: return
 	if is_guarding:
 		print("¡ATAQUE BLOQUEADO POR EL ESCUDO!")
 		return
@@ -463,6 +472,13 @@ func _rpc_notify_damage() -> void:
 func _morir() -> void:
 	if is_dead: return
 	is_dead = true
+	var muerte_en_red = NetworkManager.is_multiplayer_active()
+	if not muerte_en_red:
+		vidas_actuales = maxi(0, vidas_actuales - 1)
+		vidas_actualizadas.emit(vidas_actuales, vidas_maximas)
+	is_attacking = false
+	is_guarding = false
+	_reiniciar_sprint()
 	print("[Caballero] Caído. Peer: %d" % my_peer_id)
 
 	velocity = Vector2.ZERO
@@ -491,13 +507,63 @@ func _morir() -> void:
 
 	# Estadísticas de muertes
 	var muertes = _get_kill_count()
-	_show_death_ui(muertes)
+	_show_death_ui(muertes, vidas_actuales)
 
 	await sprite.animation_finished
-	await get_tree().create_timer(4.0).timeout
-
-	if not NetworkManager.is_multiplayer_active():
+	if muerte_en_red:
+		return # LAN conserva el modo espectador, sin reaparicion local.
+	if vidas_actuales > 0:
+		await get_tree().create_timer(2.5, false).timeout
+		_respawn()
+	else:
+		await get_tree().create_timer(4.0, false).timeout
 		get_tree().change_scene_to_file("res://Scenes/UI/MainMenu.tscn")
+
+func _respawn() -> void:
+	if NetworkManager.is_multiplayer_active() or not is_dead or vidas_actuales <= 0:
+		return
+	if is_instance_valid(_pantalla_muerte):
+		_pantalla_muerte.queue_free()
+	salud_actual = vida_maxima
+	guard_energy = GUARD_MAX
+	is_attacking = false
+	is_guarding = false
+	_reiniciar_sprint()
+	velocity = Vector2.ZERO
+	var escenario = get_tree().current_scene
+	if escenario.has_method("get_current_spawn_shape"):
+		var zona = escenario.get_current_spawn_shape()
+		if is_instance_valid(zona):
+			global_position = zona.global_position
+	sprite.modulate = Color.WHITE
+	sprite.play(ANIM_IDLE)
+	set_collision_layer_value(2, true)
+	set_collision_mask_value(1, true)
+	hitbox.set_deferred("monitoring", false)
+	hitbox.set_deferred("monitorable", false)
+	is_dead = false
+	_invulnerable = true
+	var proteccion = Timer.new()
+	proteccion.one_shot = true
+	add_child(proteccion)
+	proteccion.timeout.connect(func():
+		_invulnerable = false
+		proteccion.queue_free()
+	)
+	proteccion.start(1.5)
+	actualizar_ui_corazones()
+	if escenario.has_method("reanudar_tras_reaparicion"):
+		escenario.reanudar_tras_reaparicion()
+
+func configurar_vidas_arcade(dificultad: int) -> void:
+	vidas_maximas = 3 - clampi(dificultad, 0, 2)
+	vidas_actuales = vidas_maximas
+	vidas_actualizadas.emit(vidas_actuales, vidas_maximas)
+
+func restaurar_vidas(datos: Dictionary) -> void:
+	vidas_maximas = clampi(int(datos.get("vidas_maximas", vidas_maximas)), 1, 99)
+	vidas_actuales = clampi(int(datos.get("vidas_actuales", vidas_maximas)), 0, vidas_maximas)
+	vidas_actualizadas.emit(vidas_actuales, vidas_maximas)
 
 func _get_kill_count() -> int:
 	var escenario = get_tree().current_scene
@@ -510,9 +576,13 @@ func _get_kill_count() -> int:
 		total += escenario.lanceros_derrotados
 	return total
 
-func _show_death_ui(muertes: int) -> void:
+func _show_death_ui(muertes: int, vidas_restantes: int = 0) -> void:
 	var escenario = get_tree().current_scene
+	if is_instance_valid(_pantalla_muerte):
+		_pantalla_muerte.queue_free()
 	var canvas = CanvasLayer.new()
+	_pantalla_muerte = canvas
+	canvas.name = "PantallaMuerte"
 	canvas.layer = 100
 	escenario.add_child(canvas)
 
@@ -528,7 +598,10 @@ func _show_death_ui(muertes: int) -> void:
 		canvas.add_child(bg)
 		var tween_bg = create_tween()
 		tween_bg.tween_property(bg, "color:a", 0.7, 1.0)
-		text_muerte.text = "¡HAS CAÍDO!\nDerrotaste a %d enemigos." % muertes
+		if vidas_restantes > 0:
+			text_muerte.text = "¡HAS CAÍDO!\nTe quedan %d vida(s).\nReapareciendo..." % vidas_restantes
+		else:
+			text_muerte.text = "GAME OVER\nSin vidas restantes.\nEnemigos derrotados: %d" % muertes
 		text_muerte.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 
 	text_muerte.add_theme_font_size_override("font_size", 24)
